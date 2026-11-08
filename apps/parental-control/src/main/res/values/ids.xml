@@ -10,6 +10,8 @@
     <item name="change_pin_action" type="id" />
     <item name="enable_google_auth_action" type="id" />
     <item name="disable_google_auth_action" type="id" />
+    <item name="view_timeline_action" type="id" />
+    <item name="sync_timeline_action" type="id" />
     <item name="pin_btn_0" type="id" />
     <item name="pin_btn_1" type="id" />
     <item name="pin_btn_2" type="id" />

@@ -189,4 +189,23 @@ class ScreenTimeTrackerTest {
         assertEquals(0, tracker.getRemainingSec())
         assertFalse(limitReached)
     }
+
+    @Test
+    fun testOnNavigatingHomeSuppressesTrailingTrackedWindowEventUntilHomeArrives() {
+        tracker.setForegroundPackage("io.gh.reisxd.tizentube.cobalt")
+        tracker.onNavigatingHome(nowMs = 1_000L)
+        assertEquals(null, tracker.getForegroundPackage())
+
+        // 200ms later, overlay removal causes tizentube.cobalt to emit a trailing window event -> ignored
+        assertFalse(tracker.updateForegroundPackage("io.gh.reisxd.tizentube.cobalt", nowMs = 1_200L))
+        assertEquals(null, tracker.getForegroundPackage())
+
+        // 420ms later, launcher arrives -> accepted and clears navigation guard
+        assertTrue(tracker.updateForegroundPackage("com.appletv.launcher", nowMs = 1_420L))
+        assertEquals("com.appletv.launcher", tracker.getForegroundPackage())
+
+        // Subsequent launch of tizentube.cobalt from launcher -> immediately accepted
+        assertTrue(tracker.updateForegroundPackage("io.gh.reisxd.tizentube.cobalt", nowMs = 1_800L))
+        assertEquals("io.gh.reisxd.tizentube.cobalt", tracker.getForegroundPackage())
+    }
 }

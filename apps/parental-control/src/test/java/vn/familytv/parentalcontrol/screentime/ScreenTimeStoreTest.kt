@@ -224,4 +224,26 @@ class ScreenTimeStoreTest {
         assertEquals(7200, store.getRemainingSec(weekdayCal, policy))
         assertEquals(2, store.getWeekdayHours())
     }
+
+    @Test
+    fun testCheckAndResetDayIgnoresClockRollbackBeforeNtpSync() {
+        val nov8 = Calendar.getInstance().apply { set(2026, Calendar.NOVEMBER, 8) }
+        assertTrue(store.checkAndResetDay(nov8, policy))
+        store.setUsedSec(3600)
+        store.addExtensionSec(900)
+        assertEquals("2026-11-08", store.getLastTrackedDate())
+
+        // Cold boot before NTP sync: firmware build date 2026-04-12 (< 2026-11-08)
+        val preNtpBootCal = Calendar.getInstance().apply { set(2026, Calendar.APRIL, 12) }
+        assertFalse(store.checkAndResetDay(preNtpBootCal, policy))
+        assertEquals("2026-11-08", store.getLastTrackedDate())
+        assertEquals(3600, store.getUsedSec())
+        assertEquals(900, store.getExtensionSec())
+
+        // NTP syncs back to 2026-11-08: still same day, usage must remain intact
+        assertFalse(store.checkAndResetDay(nov8, policy))
+        assertEquals("2026-11-08", store.getLastTrackedDate())
+        assertEquals(3600, store.getUsedSec())
+        assertEquals(900, store.getExtensionSec())
+    }
 }

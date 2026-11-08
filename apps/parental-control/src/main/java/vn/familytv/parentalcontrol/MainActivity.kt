@@ -28,12 +28,18 @@ import vn.familytv.parentalcontrol.security.RecoveryCodeManager
 import vn.familytv.parentalcontrol.security.SecurityStore
 import vn.familytv.parentalcontrol.security.TotpEngine
 import vn.familytv.parentalcontrol.ui.TvViews
+import vn.familytv.parentalcontrol.ui.TimelineBarView
 import vn.familytv.parentalcontrol.ui.auth.DpadPinPadView
 import vn.familytv.parentalcontrol.ui.auth.QrCodeRenderer
 import vn.familytv.parentalcontrol.ui.auth.RecoveryCodesView
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import vn.familytv.parentalcontrol.platform.ForegroundMonitorService
 import vn.familytv.parentalcontrol.screentime.ScreenTimePolicy
 import vn.familytv.parentalcontrol.screentime.ScreenTimeStore
+import vn.familytv.parentalcontrol.screentime.UsageTimelineAnalyzer
 import vn.familytv.parentalcontrol.ipc.Mode
 import vn.familytv.parentalcontrol.ipc.ModeBroadcastSender
 import vn.familytv.parentalcontrol.ipc.ModeStateManager
@@ -62,6 +68,7 @@ class MainActivity : Activity() {
     private var isChangingPin: Boolean = false
     private var isEnrollingTotp: Boolean = false
     private var isViewingRecoveryInParentMode: Boolean = false
+    private var isViewingTimelineInParentMode: Boolean = false
 
     private var pendingSecret: String? = null
     private var pendingRecoverySet: GeneratedRecoverySet? = null
@@ -99,6 +106,7 @@ class MainActivity : Activity() {
             isChangingPin = false
             isEnrollingTotp = false
             isViewingRecoveryInParentMode = false
+            isViewingTimelineInParentMode = intent.getBooleanExtra("debug_open_timeline", false)
             sessionManager.startSession()
         }
     }
@@ -119,6 +127,7 @@ class MainActivity : Activity() {
             isChangingPin = false
             isEnrollingTotp = false
             isViewingRecoveryInParentMode = false
+            isViewingTimelineInParentMode = intent.getBooleanExtra("debug_open_timeline", false)
             sessionManager.startSession()
             renderedState = null
             updateScreen()
@@ -192,6 +201,11 @@ class MainActivity : Activity() {
                     renderedState = null
                     updateScreen()
                 }
+                isViewingTimelineInParentMode -> {
+                    isViewingTimelineInParentMode = false
+                    renderedState = null
+                    updateScreen()
+                }
                 else -> {
                     sessionManager.invalidateSession()
                     finishAffinity()
@@ -222,6 +236,7 @@ class MainActivity : Activity() {
             isChangingPin,
             isEnrollingTotp,
             isViewingRecoveryInParentMode,
+            isViewingTimelineInParentMode,
             permissions.ready,
             configKey,
             authMode,
@@ -247,6 +262,7 @@ class MainActivity : Activity() {
                 isChangingPin -> renderChangePinScreen()
                 isEnrollingTotp -> renderTotpEnrollmentScreen()
                 isViewingRecoveryInParentMode -> renderRecoveryCodesScreen()
+                isViewingTimelineInParentMode -> renderUsageTimelineScreen()
                 else -> renderParentConfiguration(permissions, oldFocus)
             }
         } else {
@@ -293,9 +309,9 @@ class MainActivity : Activity() {
 
         // App Logo
         root.addView(ImageView(this).apply {
-            setImageResource(R.drawable.ic_pctv)
+            setImageResource(R.drawable.family_time_app_art)
             scaleType = ImageView.ScaleType.FIT_CENTER
-        }, LinearLayout.LayoutParams(views.dp(56), views.dp(56)).apply {
+        }, LinearLayout.LayoutParams(views.dp(94), views.dp(56)).apply {
             gravity = Gravity.CENTER_HORIZONTAL
             bottomMargin = views.dp(8)
         })
@@ -428,10 +444,10 @@ class MainActivity : Activity() {
         }
 
         val logoImg = ImageView(this).apply {
-            setImageResource(R.drawable.ic_pctv)
+            setImageResource(R.drawable.family_time_app_art)
             scaleType = ImageView.ScaleType.FIT_CENTER
         }
-        topBar.addView(logoImg, LinearLayout.LayoutParams(views.dp(40), views.dp(40)).apply {
+        topBar.addView(logoImg, LinearLayout.LayoutParams(views.dp(67), views.dp(40)).apply {
             gravity = Gravity.CENTER_VERTICAL
             marginEnd = views.dp(14)
         })
@@ -459,7 +475,7 @@ class MainActivity : Activity() {
             textSize = 14f
             minimumHeight = views.dp(38)
             setPadding(views.dp(14), views.dp(6), views.dp(14), views.dp(6))
-            nextFocusDownId = R.id.weekday_4h
+            nextFocusDownId = R.id.view_timeline_action
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -483,10 +499,13 @@ class MainActivity : Activity() {
         scroll.addView(content)
 
         // 1. Status Card
-        val statusCard = views.column().apply {
+        val statusCard = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
             background = getDrawable(R.drawable.status_card)
             setPadding(views.dp(16), views.dp(10), views.dp(16), views.dp(10))
         }
+        val statusInfoCol = views.column()
         val cal = Calendar.getInstance()
         val isWeekend = cal.get(Calendar.DAY_OF_WEEK) in listOf(Calendar.SATURDAY, Calendar.SUNDAY)
         val dayName = if (isWeekend) {
@@ -501,7 +520,7 @@ class MainActivity : Activity() {
             }
         }
         val currentLimitH = if (isWeekend) screenTimeStore.getWeekendHours() else screenTimeStore.getWeekdayHours()
-        statusCard.addView(views.text("Hôm nay ($dayName) • Giới hạn $currentLimitH Giờ", 14f, R.color.accent_cyan))
+        statusInfoCol.addView(views.text("Hôm nay ($dayName) • Giới hạn $currentLimitH Giờ", 14f, R.color.accent_cyan))
 
         val usedSec = screenTimeStore.getUsedSec()
         val usedMin = usedSec / 60
@@ -509,10 +528,29 @@ class MainActivity : Activity() {
         val remainingSec = (totalLimitSec - usedSec).coerceAtLeast(0)
         val remMin = remainingSec / 60
         val timerSummary = "Đã xem: $usedMin phút  |  Còn lại: $remMin phút  (Tự động đặt lại lúc 00:00)"
-        statusCard.addView(views.text(timerSummary, 16f, R.color.success).apply {
+        statusInfoCol.addView(views.text(timerSummary, 16f, R.color.success).apply {
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             setPadding(0, views.dp(4), 0, 0)
         })
+        statusCard.addView(statusInfoCol, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+
+        views.button(statusCard, "📊 Xem lịch sử hôm nay", R.id.view_timeline_action) {
+            isViewingTimelineInParentMode = true
+            renderedState = null
+            updateScreen()
+        }.apply {
+            textSize = 13f
+            minimumHeight = views.dp(38)
+            setPadding(views.dp(14), views.dp(6), views.dp(14), views.dp(6))
+            nextFocusUpId = R.id.lock_action
+            nextFocusDownId = R.id.weekday_4h
+            (layoutParams as? LinearLayout.LayoutParams)?.apply {
+                width = LinearLayout.LayoutParams.WRAP_CONTENT
+                topMargin = 0
+                marginStart = views.dp(12)
+            }
+        }
+
         content.addView(statusCard, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { bottomMargin = views.dp(8) })
@@ -570,7 +608,7 @@ class MainActivity : Activity() {
                     alpha = 0.4f
                 }
             }
-            btn.nextFocusUpId = R.id.lock_action
+            btn.nextFocusUpId = if (h == 4) R.id.view_timeline_action else R.id.lock_action
             btn.nextFocusDownId = weekendIds[h - 1]
             btn.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 topMargin = 0
@@ -948,6 +986,204 @@ class MainActivity : Activity() {
 
         setContentView(root)
         views.focusLater(closeBtn)
+    }
+
+    /**
+     * SCREEN: Daily Usage Timeline (00:00 -> 24:00 bar + chronological session list)
+     */
+    private fun renderUsageTimelineScreen() {
+        val nowMs = System.currentTimeMillis()
+        val timeline = UsageTimelineAnalyzer.queryToday(this, screenTimePolicy, nowMs)
+        val startCal = Calendar.getInstance().apply {
+            timeInMillis = nowMs
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val dayStartMs = startCal.timeInMillis
+        val dateLabel = SimpleDateFormat("dd/MM/yyyy", Locale.US).format(Date(nowMs))
+        val timeFmt = SimpleDateFormat("HH:mm", Locale.US)
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.parseColor("#090D16"))
+            setPadding(views.dp(36), views.dp(20), views.dp(36), views.dp(20))
+        }
+
+        // Header Row
+        val headerRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, views.dp(10))
+        }
+        val titleCol = views.column()
+        titleCol.addView(views.title("Lịch sử sử dụng hôm nay ($dateLabel)").apply {
+            textSize = 20f
+            setPadding(0, 0, 0, views.dp(2))
+        })
+        val summaryText = "Tổng thời gian App tính giờ: ${UsageTimelineAnalyzer.formatDurationVi(timeline.totalTrackedSec)}   •   App không tính giờ: ${UsageTimelineAnalyzer.formatDurationVi(timeline.totalUntrackedSec)}"
+        titleCol.addView(views.text(summaryText, 13f, R.color.accent_cyan))
+        headerRow.addView(titleCol, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+
+        val totalLimitSec = screenTimeStore.getTotalLimitSec(startCal, screenTimePolicy)
+        val targetSyncSec = timeline.totalTrackedSec.coerceAtMost(totalLimitSec)
+        val currentUsedSec = screenTimeStore.getUsedSec()
+        if (kotlin.math.abs(targetSyncSec - currentUsedSec) >= 60) {
+            views.button(
+                headerRow,
+                "Đồng bộ bộ đếm (${UsageTimelineAnalyzer.formatDurationVi(timeline.totalTrackedSec)})",
+                R.id.sync_timeline_action
+            ) {
+                val syncIntent = Intent(ForegroundMonitorService.ACTION_SET_SCREENTIME).apply {
+                    setPackage(packageName)
+                    putExtra("used_sec", targetSyncSec)
+                }
+                sendBroadcast(syncIntent)
+                screenTimeStore.setUsedSec(targetSyncSec)
+                Toast.makeText(this, "Đã đồng bộ thời gian đã xem theo lịch sử!", Toast.LENGTH_SHORT).show()
+                renderedState = null
+                updateScreen()
+            }.apply {
+                textSize = 13f
+                minimumHeight = views.dp(38)
+                setPadding(views.dp(12), views.dp(6), views.dp(12), views.dp(6))
+                (layoutParams as? LinearLayout.LayoutParams)?.apply {
+                    width = LinearLayout.LayoutParams.WRAP_CONTENT
+                    topMargin = 0
+                    marginEnd = views.dp(10)
+                }
+            }
+        }
+
+        val backBtn = views.button(headerRow, "Quay lại", R.id.back_action) {
+            isViewingTimelineInParentMode = false
+            renderedState = null
+            updateScreen()
+        }.apply {
+            textSize = 13f
+            minimumHeight = views.dp(38)
+            setPadding(views.dp(14), views.dp(6), views.dp(14), views.dp(6))
+            (layoutParams as? LinearLayout.LayoutParams)?.apply {
+                width = LinearLayout.LayoutParams.WRAP_CONTENT
+                topMargin = 0
+            }
+        }
+        root.addView(headerRow)
+
+        // 24-Hour Timeline Bar Card
+        val barCard = views.column().apply {
+            background = getDrawable(R.drawable.status_card)
+            setPadding(views.dp(16), views.dp(10), views.dp(16), views.dp(10))
+        }
+        val legendRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, views.dp(4))
+        }
+        legendRow.addView(views.text("Trục thời gian 24 giờ", 13f, R.color.text_primary).apply {
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        legendRow.addView(views.text("■ Tính giờ (Giải trí)", 12f, R.color.accent_amber).apply {
+            setPadding(0, 0, views.dp(14), 0)
+        })
+        legendRow.addView(views.text("■ Không tính giờ (Học tập / Khác)", 12f, R.color.accent_cyan))
+        barCard.addView(legendRow)
+        barCard.addView(
+            TimelineBarView(this, timeline.sessions, dayStartMs),
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, views.dp(46))
+        )
+        root.addView(barCard, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { bottomMargin = views.dp(8) })
+
+        // Chronological Sessions List Card
+        val listCard = views.column().apply {
+            background = getDrawable(R.drawable.status_card)
+            setPadding(views.dp(16), views.dp(10), views.dp(16), views.dp(10))
+        }
+        listCard.addView(views.text(
+            "Chi tiết các phiên mở ứng dụng (${timeline.sessions.size} phiên)",
+            14f,
+            R.color.text_primary
+        ).apply {
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setPadding(0, 0, 0, views.dp(6))
+        })
+
+        val scroll = ScrollView(this).apply {
+            isFocusable = true
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
+        }
+        val sessionList = views.column()
+
+        if (timeline.sessions.isEmpty()) {
+            sessionList.addView(views.text(
+                "Chưa ghi nhận phiên sử dụng ứng dụng nào trong ngày hôm nay.",
+                14f,
+                R.color.text_secondary
+            ).apply { setPadding(0, views.dp(8), 0, views.dp(8)) })
+        } else {
+            for ((idx, session) in timeline.sessions.withIndex()) {
+                val row = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(views.dp(10), views.dp(7), views.dp(10), views.dp(7))
+                    setBackgroundColor(if (idx % 2 == 0) Color.parseColor("#111827") else Color.parseColor("#0B1120"))
+                }
+
+                val startStr = timeFmt.format(Date(session.startMs))
+                val endStr = timeFmt.format(Date(session.endMs))
+                val rangeTv = views.text("$startStr → $endStr", 14f, R.color.accent_cyan).apply {
+                    typeface = android.graphics.Typeface.MONOSPACE
+                }
+                row.addView(rangeTv, LinearLayout.LayoutParams(views.dp(130), LinearLayout.LayoutParams.WRAP_CONTENT))
+
+                val appLabel = UsageTimelineAnalyzer.resolveAppName(this, session.packageName)
+                val appTv = views.text(appLabel, 14f, R.color.text_primary).apply {
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                }
+                row.addView(appTv, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+
+                val durTv = views.text(
+                    UsageTimelineAnalyzer.formatDurationVi(session.durationSec),
+                    14f,
+                    if (session.isTracked) R.color.accent_amber else R.color.text_secondary
+                ).apply {
+                    gravity = Gravity.END
+                    setPadding(views.dp(8), 0, views.dp(14), 0)
+                }
+                row.addView(durTv, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+
+                val tagText = if (session.isTracked) "Tính giờ" else "Không tính giờ"
+                val tagColor = if (session.isTracked) R.color.accent_amber else R.color.accent_cyan
+                val tagTv = views.text(tagText, 12f, tagColor).apply {
+                    gravity = Gravity.END
+                }
+                row.addView(tagTv, LinearLayout.LayoutParams(views.dp(100), LinearLayout.LayoutParams.WRAP_CONTENT))
+
+                sessionList.addView(row, LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { bottomMargin = views.dp(3) })
+            }
+        }
+
+        scroll.addView(sessionList)
+        listCard.addView(scroll)
+        root.addView(listCard, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            0,
+            1f
+        ))
+
+        setContentView(root)
+        views.focusLater(backBtn)
     }
 
     private fun onAuthSuccess(nowMs: Long, message: String) {

@@ -10,8 +10,8 @@
     </queries>
     <application
         android:label="@string/app_name"
-        android:icon="@drawable/ic_pctv"
-        android:banner="@drawable/pctv_banner"
+        android:icon="@drawable/family_time_app_art"
+        android:banner="@drawable/family_time_app_art"
         android:theme="@style/Theme.FamilyTV"
         android:allowBackup="false"
         android:supportsRtl="true">

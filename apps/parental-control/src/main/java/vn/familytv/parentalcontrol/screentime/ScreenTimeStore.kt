@@ -94,6 +94,9 @@ class ScreenTimeStore(private val prefs: SharedPreferences) {
     fun checkAndResetDay(calendar: Calendar, policy: ScreenTimePolicy): Boolean {
         val todayStr = formatDate(calendar.time)
         val lastDate = getLastTrackedDate()
+        if (lastDate != null && todayStr < lastDate) {
+            return false
+        }
         if (lastDate != todayStr) {
             setLastTrackedDate(todayStr)
             setUsedSec(0)

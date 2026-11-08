@@ -10,6 +10,7 @@ class ScreenTimeTracker(
     private var isDreaming: Boolean = false
     private var currentMode: Mode = Mode.KID
     private var foregroundPackage: String? = null
+    private var navigatingHomeUntilMs: Long = 0L
     private var usedSec: Int = 0
     private var totalLimitSec: Int = policy.defaultLimitSec
 
@@ -43,6 +44,24 @@ class ScreenTimeTracker(
     }
 
     @Synchronized
+    fun onNavigatingHome(nowMs: Long = System.currentTimeMillis(), guardDurationMs: Long = 2_500L) {
+        foregroundPackage = null
+        navigatingHomeUntilMs = nowMs + guardDurationMs
+    }
+
+    @Synchronized
+    fun updateForegroundPackage(pkg: String?, nowMs: Long = System.currentTimeMillis()): Boolean {
+        if (pkg != null && nowMs < navigatingHomeUntilMs) {
+            if (policy.isTrackedPackage(pkg)) {
+                return false
+            }
+            navigatingHomeUntilMs = 0L
+        }
+        foregroundPackage = pkg
+        return true
+    }
+
+    @Synchronized
     fun getForegroundPackage(): String? = foregroundPackage
 
     @Synchronized
@@ -63,6 +82,23 @@ class ScreenTimeTracker(
 
     @Synchronized
     fun getRemainingSec(): Int = (totalLimitSec - usedSec).coerceAtLeast(0)
+
+    @Synchronized
+    fun debugCountdownText(): String {
+        val remaining = getRemainingSec()
+        val hours = remaining / 3600
+        val time = if (hours > 0) "%d:%02d:%02d".format(hours, remaining / 60 % 60, remaining % 60)
+            else "%02d:%02d".format(remaining / 60, remaining % 60)
+        val status = when {
+            !isScreenOn -> "SCREEN OFF"
+            isDreaming -> "DREAMING"
+            currentMode != Mode.KID -> "PARENT"
+            remaining == 0 -> "LIMIT REACHED"
+            !policy.isTrackedPackage(foregroundPackage) -> "UNTRACKED"
+            else -> "COUNTING"
+        }
+        return "$time  •  $status\n${foregroundPackage ?: "(no package)"}"
+    }
 
     @Synchronized
     fun tickSecond() {

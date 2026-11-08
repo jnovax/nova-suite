@@ -5,11 +5,17 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ApplicationInfo
+import android.graphics.Color
+import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.Gravity
+import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import android.widget.TextView
 import java.util.Calendar
 import vn.familytv.parentalcontrol.MainActivity
 import vn.familytv.parentalcontrol.audio.AudioFocusInterrupter
@@ -53,6 +59,7 @@ class ForegroundMonitorService : AccessibilityService() {
     private var isDebugReceiverRegistered = false
     private var currentForegroundPackage: String? = null
     private var lastSavedUsedSec: Int = -1
+    private var debugCountdown: TextView? = null
 
     private val debugReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -188,6 +195,7 @@ class ForegroundMonitorService : AccessibilityService() {
             val remaining = tracker.getRemainingSec()
             val used = tracker.getUsedSec()
             modeManager.setScreenTimeRemainingSec(remaining)
+            debugCountdown?.text = tracker.debugCountdownText()
 
             // Periodically save state (every 10 seconds of active usage increment)
             if (used != lastSavedUsedSec && used % 10 == 0) {
@@ -263,19 +271,55 @@ class ForegroundMonitorService : AccessibilityService() {
         super.onServiceConnected()
         connected = true
         Log.i(TAG, "MONITOR_CONNECTED")
+        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0 && debugCountdown == null) {
+            val label = TextView(this).apply {
+                setTextColor(Color.WHITE)
+                setBackgroundColor(0xCC000000.toInt())
+                textSize = 10f
+                gravity = Gravity.RIGHT
+                setPadding(4, 2, 4, 2)
+                text = tracker.debugCountdownText()
+            }
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+                PixelFormat.TRANSLUCENT
+            ).apply { gravity = Gravity.TOP or Gravity.RIGHT; x = 0; y = 0 }
+            try {
+                getSystemService(WindowManager::class.java).addView(label, params)
+                debugCountdown = label
+            } catch (e: RuntimeException) {
+                Log.e(TAG, "DEBUG_COUNTDOWN_FAILED", e)
+            }
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             val pkg = event.packageName?.toString()
+            val windowClass = event.className?.toString()
+            if (!ForegroundEventFilter.accept(pkg, windowClass)) {
+                Log.d(TAG, "FOREGROUND_IGNORED package=$pkg class=$windowClass")
+                return
+            }
+            if (::tracker.isInitialized && !tracker.updateForegroundPackage(pkg)) {
+                Log.d(TAG, "FOREGROUND_SUPPRESSED_GO_HOME package=$pkg class=$windowClass")
+                return
+            }
             Log.d(TAG, "FOREGROUND package=$pkg")
             currentForegroundPackage = pkg
-            if (::tracker.isInitialized) {
-                tracker.setForegroundPackage(pkg)
-            }
             if (pkg != null && ::policy.isInitialized && ::tracker.isInitialized && ::timeLockOverlayManager.isInitialized) {
-                if (policy.isTrackedPackage(pkg) && tracker.getRemainingSec() <= 0 && modeManager.getMode() == Mode.KID && !tracker.isDreaming() && !timeLockOverlayManager.isShowing()) {
-                    onLimitReached()
+                if (policy.isTrackedPackage(pkg)) {
+                    if (tracker.getRemainingSec() <= 0 && modeManager.getMode() == Mode.KID && !tracker.isDreaming() && !timeLockOverlayManager.isShowing()) {
+                        onLimitReached()
+                    }
+                } else if (timeLockOverlayManager.isShowing()) {
+                    timeLockOverlayManager.dismiss()
+                    audioFocusInterrupter.releaseFocus()
+                    modeManager.setQuizActive(false)
+                    broadcastState()
                 }
             }
         }
@@ -313,6 +357,10 @@ class ForegroundMonitorService : AccessibilityService() {
                 startActivity(intent)
             },
             onGoHome = {
+                currentForegroundPackage = null
+                if (::tracker.isInitialized) {
+                    tracker.onNavigatingHome()
+                }
                 audioFocusInterrupter.releaseFocus()
                 timeLockOverlayManager.dismiss()
                 modeManager.setQuizActive(false)
@@ -344,7 +392,13 @@ class ForegroundMonitorService : AccessibilityService() {
     override fun onUnbind(intent: Intent?): Boolean {
         connected = false
         Log.i(TAG, "MONITOR_UNBOUND")
+        removeDebugCountdown()
         return super.onUnbind(intent)
+    }
+
+    private fun removeDebugCountdown() {
+        debugCountdown?.let { runCatching { getSystemService(WindowManager::class.java).removeView(it) } }
+        debugCountdown = null
     }
 
     override fun onDestroy() {
@@ -352,6 +406,7 @@ class ForegroundMonitorService : AccessibilityService() {
         Log.i(TAG, "MONITOR_DESTROYED")
 
         handler.removeCallbacks(tickerRunnable)
+        removeDebugCountdown()
 
         if (isReceiverRegistered) {
             runCatching { unregisterReceiver(screenReceiver) }

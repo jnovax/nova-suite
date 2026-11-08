@@ -63,10 +63,10 @@ class RemoteAuthActivity : Activity() {
         }
 
         val logoImg = android.widget.ImageView(this).apply {
-            setImageResource(R.drawable.ic_pctv)
+            setImageResource(R.drawable.family_time_app_art)
             scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
         }
-        root.addView(logoImg, LinearLayout.LayoutParams(views.dp(44), views.dp(44)).apply {
+        root.addView(logoImg, LinearLayout.LayoutParams(views.dp(74), views.dp(44)).apply {
             gravity = Gravity.CENTER_HORIZONTAL
             bottomMargin = views.dp(6)
         })

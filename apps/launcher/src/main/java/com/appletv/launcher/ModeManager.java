@@ -159,6 +159,16 @@ public final class ModeManager {
         }
     }
 
+    /** Only rebuild the grid when a state update changes which apps can be shown. */
+    static boolean shouldReloadApps(String oldMode, String newMode, Set<String> oldList, Set<String> newList) {
+        String previous = normalizeMode(oldMode);
+        String next = newMode == null ? previous : normalizeMode(newMode);
+        if (!previous.equals(next)) return true;
+        if (!MODE_KID.equals(next) || newList == null) return false;
+        Set<String> previousList = oldList == null ? Collections.emptySet() : oldList;
+        return !previousList.equals(newList);
+    }
+
     /** Gets active custom whitelist if stored, or null if using defaults. */
     public static Set<String> getCustomWhitelist(Context context) {
         if (context == null) return null;

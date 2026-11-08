@@ -406,15 +406,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     reloadApps(false);
                 } else if (ModeManager.ACTION_MODE_CHANGED.equals(action)) {
                     String newMode = intent.getStringExtra(ModeManager.EXTRA_MODE);
+                    ArrayList<String> customList = intent.getStringArrayListExtra(ModeManager.EXTRA_ALLOWED_PACKAGES);
+                    Set<String> updatedList = customList == null ? null : new HashSet<>(customList);
+                    boolean reload = ModeManager.shouldReloadApps(ModeManager.getMode(MainActivity.this),
+                            newMode, ModeManager.getCustomWhitelist(MainActivity.this), updatedList);
                     if (newMode != null) {
                         ModeManager.setMode(MainActivity.this, newMode);
                     }
-                    ArrayList<String> customList = intent.getStringArrayListExtra(ModeManager.EXTRA_ALLOWED_PACKAGES);
-                    if (customList != null) {
-                        ModeManager.setCustomWhitelist(MainActivity.this, new HashSet<>(customList));
+                    if (updatedList != null) {
+                        ModeManager.setCustomWhitelist(MainActivity.this, updatedList);
                     }
                     updateModeUI();
-                    reloadApps(true);
+                    if (reload) reloadApps(true);
                 }
             }
         };
