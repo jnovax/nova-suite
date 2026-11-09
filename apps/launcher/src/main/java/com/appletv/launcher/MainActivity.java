@@ -111,10 +111,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean ambientGlow;
     private TextView greeting;
     private TextView btnMode;
+    private View btnUsb;
     private View btnInputs;
     private TextView btnWifi;
     private View btnSettings;
     private BroadcastReceiver modeReceiver;
+    private final IntentFilter usbFilter = new IntentFilter();
+    private final BroadcastReceiver usbReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            updateUsbButton();
+        }
+    };
     private TextView shamsiDate;
     private boolean shamsi;
     /** Optional time-of-day backdrop (config.xml, sky_intensity); 0 keeps it hidden. */
@@ -349,10 +357,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         });
 
         btnMode = findViewById(R.id.btnMode);
+        btnUsb = findViewById(R.id.btnUsb);
         btnInputs = findViewById(R.id.btnInputs);
         btnSettings = findViewById(R.id.btnSettings);
         if (btnMode != null) {
             btnMode.setOnClickListener(v -> handleModeButtonClick());
+        }
+        if (btnUsb != null) {
+            btnUsb.setOnClickListener(v -> showUsbMenu());
         }
         btnInputs.setOnClickListener(v -> toggleInputs());
         btnWifi.setOnClickListener(v -> openNetworkPill());
@@ -380,7 +392,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 return true;
             }
             int firstButton = (btnMode != null && btnMode.getVisibility() == View.VISIBLE)
-                    ? R.id.btnMode : (btnInputs.getVisibility() == View.VISIBLE ? R.id.btnInputs : R.id.btnWifi);
+                    ? R.id.btnMode : ((btnUsb != null && btnUsb.getVisibility() == View.VISIBLE)
+                    ? R.id.btnUsb : (btnInputs.getVisibility() == View.VISIBLE ? R.id.btnInputs : R.id.btnWifi));
             int lastButton = (btnSettings != null && btnSettings.getVisibility() == View.VISIBLE)
                     ? R.id.btnSettings : R.id.btnWifi;
             int leftButton = rtlMenuBar ? lastButton : firstButton;
@@ -389,6 +402,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == rightButton;
         };
         if (btnMode != null) btnMode.setOnKeyListener(pillKeys);
+        if (btnUsb != null) btnUsb.setOnKeyListener(pillKeys);
         btnInputs.setOnKeyListener(pillKeys);
         btnWifi.setOnKeyListener(pillKeys);
         if (btnSettings != null) btnSettings.setOnKeyListener(pillKeys);
@@ -441,6 +455,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         packageFilter.addAction(Intent.ACTION_PACKAGE_REMOVED);
         packageFilter.addAction(Intent.ACTION_PACKAGE_CHANGED);
         packageFilter.addDataScheme("package");
+
+        usbFilter.addAction(Intent.ACTION_MEDIA_MOUNTED);
+        usbFilter.addAction(Intent.ACTION_MEDIA_UNMOUNTED);
+        usbFilter.addAction(Intent.ACTION_MEDIA_EJECT);
+        usbFilter.addAction(Intent.ACTION_MEDIA_REMOVED);
+        usbFilter.addDataScheme("file");
 
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
@@ -892,8 +912,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         super.onStart();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(packageReceiver, packageFilter, Context.RECEIVER_NOT_EXPORTED);
+            registerReceiver(usbReceiver, usbFilter, Context.RECEIVER_EXPORTED);
         } else {
             registerReceiver(packageReceiver, packageFilter);
+            registerReceiver(usbReceiver, usbFilter);
         }
     }
 
@@ -914,6 +936,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         rebuildOnResume = false;
         updateGreeting();
         updateWifiLabel();
+        updateUsbButton();
         updateInputsButton();
         updateModeUI();
         sky.update();
@@ -1015,6 +1038,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     protected void onStop() {
         super.onStop();
         unregisterReceiver(packageReceiver);
+        try { unregisterReceiver(usbReceiver); } catch (Exception ignored) {}
         rebuildOnResume = true;
     }
 
@@ -1501,6 +1525,67 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 "com.xiaomi.mitv.settings", "com.xiaomi.mitv.settings.entry.MainActivity"));
         if (i.resolveActivity(getPackageManager()) != null) return i;
         return new Intent(standardAction);   // nothing found: let open() show the can't-open toast
+    }
+
+    /** Hides the USB pill unless a removable USB storage volume is currently mounted. */
+    private void updateUsbButton() {
+        if (btnUsb == null) return;
+        btnUsb.setVisibility(hasMountedUsbDrive() ? View.VISIBLE : View.GONE);
+    }
+
+    private boolean hasMountedUsbDrive() {
+        try {
+            android.os.storage.StorageManager sm = (android.os.storage.StorageManager) getSystemService(STORAGE_SERVICE);
+            if (sm == null) return false;
+            for (android.os.storage.StorageVolume vol : sm.getStorageVolumes()) {
+                if (vol.isRemovable() && android.os.Environment.MEDIA_MOUNTED.equals(vol.getState())) {
+                    return true;
+                }
+            }
+        } catch (Exception ignored) {}
+        return false;
+    }
+
+    private void showUsbMenu() {
+        if (openPopup != null) {
+            openPopup.dismiss();
+            openPopup = null;
+            return;
+        }
+        if (btnUsb == null) return;
+        View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        int width = Math.max(btnUsb.getWidth(), (int) (210 * density));
+        final PopupWindow popup = glassPopup(panel, width);
+
+        addInputRow(rows, popup, R.drawable.ic_picture, getString(R.string.usb_open_player), -1,
+                this::openUsbMediaPlayer);
+        addInputRow(rows, popup, R.drawable.ic_settings, getString(R.string.usb_storage_settings), -1,
+                () -> open(systemIntent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS)));
+
+        panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        popup.setWidth(Math.max(width, panel.getMeasuredWidth()));
+        int alignment = getResources().getBoolean(R.bool.rtl_menu_bar) ? Gravity.END : Gravity.START;
+        dropIn(popup, panel, btnUsb, alignment);
+        if (rows.getChildCount() > 0) rows.getChildAt(0).requestFocus();
+    }
+
+    private void openUsbMediaPlayer() {
+        String[] candidates = new String[]{
+                "org.courville.nova",
+                "org.videolan.vlc",
+                "org.xbmc.kodi",
+                "com.ghisler.android.TotalCommander"
+        };
+        for (String pkg : candidates) {
+            Intent i = getPackageManager().getLeanbackLaunchIntentForPackage(pkg);
+            if (i == null) i = getPackageManager().getLaunchIntentForPackage(pkg);
+            if (i != null) {
+                open(i);
+                return;
+            }
+        }
+        open(systemIntent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS));
     }
 
     /** Hides the Inputs pill when it would have nothing to list: streaming boxes have no HDMI-in, AV or tuner. */
