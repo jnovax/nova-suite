@@ -95,6 +95,17 @@
                     android:text="@string/advanced_effects_warning" />
 
                 <TextView
+                    android:id="@+id/hiddenAppsChoice"
+                    style="@style/SettingsRow"
+                    android:layout_marginTop="16dp" />
+
+                <TextView
+                    android:id="@+id/remoteKeysChoice"
+                    style="@style/SettingsRow"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/remote_key_mapper" />
+
+                <TextView
                     android:id="@+id/followThemeChoice"
                     style="@style/SettingsRow"
                     android:layout_marginTop="16dp"
