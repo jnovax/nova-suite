@@ -18,17 +18,48 @@ import android.view.accessibility.AccessibilityEvent;
  */
 public class HomeKeyService extends AccessibilityService {
 
+    static final String ACTION_UPDATE_SUITE = "com.appletv.launcher.action.UPDATE_SUITE";
     private int[] settingsScancodes = new int[0];
     private int[] settingsKeycodes = new int[0];
     private boolean settingsPanel;
     private Config config;
     private long lastConfigLoadTime = 0;
+    private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private android.view.View dimmerView;
+    private final Runnable sleepRunnable = this::executeSleepTimer;
+    private final android.content.SharedPreferences.OnSharedPreferenceChangeListener prefListener = (prefs, key) -> {
+        lastConfigLoadTime = 0;
+        if (Config.KEY_DIMMER_LEVEL.equals(key) || Config.KEY_SLEEP_END_MS.equals(key)) {
+            handler.post(this::syncSuiteState);
+        }
+    };
 
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
         settingsScancodes = getResources().getIntArray(R.array.settings_key_scancodes);
+        getSharedPreferences(Config.SETTINGS_NAME, MODE_PRIVATE)
+                .registerOnSharedPreferenceChangeListener(prefListener);
         getConfig();
+        syncSuiteState();
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && ACTION_UPDATE_SUITE.equals(intent.getAction())) {
+            lastConfigLoadTime = 0;
+            syncSuiteState();
+        }
+        return super.onStartCommand(intent, flags, startId);
+    }
+
+    @Override
+    public void onDestroy() {
+        getSharedPreferences(Config.SETTINGS_NAME, MODE_PRIVATE)
+                .unregisterOnSharedPreferenceChangeListener(prefListener);
+        handler.removeCallbacks(sleepRunnable);
+        applyDimmer(0);
+        super.onDestroy();
     }
 
     private synchronized Config getConfig() {
@@ -53,6 +84,11 @@ public class HomeKeyService extends AccessibilityService {
     protected boolean onKeyEvent(KeyEvent event) {
         android.util.Log.i("AppleTv.HomeKey", "onKeyEvent: keyCode=" + event.getKeyCode() + " scanCode=" + event.getScanCode() + " action=" + event.getAction());
         android.util.Log.e("HomeKeyTest", "key: " + event.getKeyCode() + " action: " + event.getAction());
+
+        // 0. Never intercept navigation, volume, or power keys
+        if (Config.isProtectedRemoteKey(event.getKeyCode())) {
+            return false;
+        }
 
         // 1. Direct App Shortcuts & Actions (YouTube, Netflix, VTVgo, Inputs, Wallpaper, etc.)
         Config cfg = getConfig();
@@ -179,5 +215,89 @@ public class HomeKeyService extends AccessibilityService {
 
     @Override
     public void onInterrupt() {
+    }
+
+    private void syncSuiteState() {
+        android.content.SharedPreferences prefs = getSharedPreferences(Config.SETTINGS_NAME, MODE_PRIVATE);
+        int dimmerLevel = prefs.getInt(Config.KEY_DIMMER_LEVEL, 0);
+        applyDimmer(dimmerLevel);
+
+        handler.removeCallbacks(sleepRunnable);
+        long endMs = prefs.getLong(Config.KEY_SLEEP_END_MS, 0L);
+        long remaining = endMs - System.currentTimeMillis();
+        if (endMs > 0 && remaining > 0) {
+            handler.postDelayed(sleepRunnable, remaining);
+        } else if (endMs > 0) {
+            prefs.edit().putLong(Config.KEY_SLEEP_END_MS, 0L).apply();
+        }
+    }
+
+    private void applyDimmer(int level) {
+        android.view.WindowManager wm = (android.view.WindowManager) getSystemService(WINDOW_SERVICE);
+        if (wm == null) return;
+        if (level <= 0) {
+            if (dimmerView != null) {
+                try { wm.removeView(dimmerView); } catch (Exception ignored) {}
+                dimmerView = null;
+            }
+            return;
+        }
+        float alpha = Math.max(0f, Math.min(0.85f, level / 100f));
+        if (dimmerView == null) {
+            dimmerView = new android.view.View(this);
+            dimmerView.setBackgroundColor(0xFF000000);
+            dimmerView.setAlpha(alpha);
+            android.view.WindowManager.LayoutParams lp = new android.view.WindowManager.LayoutParams(
+                    android.view.WindowManager.LayoutParams.MATCH_PARENT,
+                    android.view.WindowManager.LayoutParams.MATCH_PARENT,
+                    android.view.WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                    android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                            | android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                            | android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                            | android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                    android.graphics.PixelFormat.TRANSLUCENT);
+            try {
+                wm.addView(dimmerView, lp);
+            } catch (Exception e) {
+                dimmerView = null;
+            }
+        } else {
+            dimmerView.setAlpha(alpha);
+        }
+    }
+
+    private void executeSleepTimer() {
+        getSharedPreferences(Config.SETTINGS_NAME, MODE_PRIVATE)
+                .edit().putLong(Config.KEY_SLEEP_END_MS, 0L).apply();
+        try {
+            android.media.AudioManager am = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+            if (am != null) {
+                am.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_STOP));
+                am.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_STOP));
+            }
+        } catch (Exception ignored) {}
+        try {
+            Intent home = new Intent(Intent.ACTION_MAIN)
+                    .addCategory(Intent.CATEGORY_HOME)
+                    .setPackage(getPackageName())
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(home);
+        } catch (Exception ignored) {}
+        handler.postDelayed(() -> {
+            boolean locked = false;
+            if (android.os.Build.VERSION.SDK_INT >= 28) {
+                try {
+                    locked = performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN);
+                } catch (Exception ignored) {}
+            }
+            if (!locked) {
+                try {
+                    Intent dream = new Intent(Intent.ACTION_MAIN)
+                            .setClassName("com.android.systemui", "com.android.systemui.Somnambulator")
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(dream);
+                } catch (Exception ignored) {}
+            }
+        }, 600);
     }
 }
