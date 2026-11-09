@@ -52,9 +52,9 @@ All notable changes to the `nova-tv-launcher` ecosystem (`apps/launcher`, `apps/
   - Traffic-light color states: White (`> 5m`), Warning Gold (`2m – 5m`), Alert Red (`≤ 2m`).
   - Automatic lock back to `Kid Mode` when the TV screen turns off (`ACTION_SCREEN_OFF`).
 - **FamilyTime Parental Control (`apps/parental-control`):**
-  - Tracks active usage across target entertainment apps (YouTube/TizenTube, MyTV, Nova Video Player, Spotify) and pauses automatically during screensaver.
-  - Triggers interactive math/logic **Quiz Break** overlay after each 15-minute session in Kid Mode.
-  - Offline **Google Authenticator (TOTP)** + recovery code authentication to switch to `Parent Mode`.
+  - Tracks active daily screen time across entertainment apps (YouTube/TizenTube, MyTV, Nova Video Player, Spotify) with a 24-hour visual usage timeline (`UsageTimelineAnalyzer`, `TimelineBarView`) and pauses automatically during screensaver.
+  - Displays a full-screen **Time-Lock Overlay** (`TimeLockOverlayManager`) when the daily limit is reached, with quick extension options (`+15m`, `+30m`, `+1h`, `All day`).
+  - Supports **6-digit Parent PIN** and offline **Google Authenticator (TOTP)** + recovery code authentication to unlock or switch to `Parent Mode`.
 - **Custom High-Resolution Brand Banners (`AppAdapter`):**
   - Added bespoke tvOS banners for YouTube (`TizenTube Cobalt`), `MyTV`, `Nova Video Player`, and `Spotify`.
 

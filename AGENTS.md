@@ -13,7 +13,7 @@ Transform any connected Android TV or Google TV (Sony, TCL, Xiaomi, OnePlus, His
    - **Auto `[ 💾 USB ]` Top-Bar Pill:** Automatically appears when a removable USB/external drive is mounted; opens a 2-row glass menu for **Nova Video Player** (`org.courville.nova`) and **Storage & Safely Eject**.
    - **On-TV Remote Key Mapper & Hidden Apps Manager (`LauncherSettingsActivity`):** Interactive key capture dialog to bind any non-protected remote button to launcher actions or installed apps without ADB, plus 1-click app unhide.
 2. **FamilyTime Parental Control (`apps/parental-control`) & Shared IPC (`core/contract`):**
-   - Screen-time tracking (`ScreenTimeTracker`), periodic educational Quiz Break overlay (`TimeLockOverlayManager`), and Google Authenticator TOTP parent unlock (`TotpEngine`).
+   - Daily screen-time tracking (`ScreenTimeTracker`), 24-hour visual usage timeline (`UsageTimelineAnalyzer`, `TimelineBarView`), full-screen Time-Lock overlay (`TimeLockOverlayManager`) with quick time extensions (`+15m / +30m / +1h / All day`), and Parent PIN / Google Authenticator TOTP unlock (`TotpEngine`).
    - Live **Dynamic Time Pill (`[ 🧒 12m ]`)** on the Launcher top bar with traffic-light color alerts (White > 5m, Gold 2–5m, Red ≤ 2m) and automatic Kid Mode lock on screen-off.
 3. **Native Apple TV Recent Apps Switcher (`RecentAppsActivity`):** Double-press Home gesture with live usage stats and background process termination.
 4. **100% Hardware-Speed Volume Hold Acceleration:** Navigation, volume, and power keys are strictly protected (`Config.isProtectedRemoteKey`) and never intercepted in accessibility services.
