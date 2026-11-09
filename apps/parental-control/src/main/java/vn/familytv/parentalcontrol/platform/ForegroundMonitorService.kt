@@ -81,7 +81,7 @@ class ForegroundMonitorService : AccessibilityService() {
                             targetUsed = (totalLimit - remaining).coerceAtLeast(0)
                         }
                         Log.i(TAG, "DEBUG_SET_SCREENTIME used=$targetUsed, remaining=$remaining")
-                        tracker.restoreUsedAndLimit(used = targetUsed, limit = totalLimit)
+                        tracker.restoreUsedAndLimit(targetUsed, totalLimit)
                         modeManager.setScreenTimeRemainingSec(remaining)
                         lastSavedUsedSec = targetUsed
                         screenTimeStore.setUsedSec(targetUsed)
@@ -175,7 +175,7 @@ class ForegroundMonitorService : AccessibilityService() {
             // Midnight rollover check
             if (::screenTimeStore.isInitialized && screenTimeStore.checkAndResetDay(calendar, policy)) {
                 val newLimit = screenTimeStore.getTotalLimitSec(calendar, policy)
-                tracker.restoreUsedAndLimit(used = 0, limit = newLimit)
+                tracker.restoreUsedAndLimit(0, newLimit)
                 modeManager.setScreenTimeRemainingSec(newLimit)
                 lastSavedUsedSec = 0
                 if (::timeLockOverlayManager.isInitialized && timeLockOverlayManager.isShowing()) {
@@ -225,14 +225,14 @@ class ForegroundMonitorService : AccessibilityService() {
         modeBroadcastSender = ModeBroadcastSender(this)
         timeLockOverlayManager = TimeLockOverlayManager(this, screenTimeStore, securityStore)
 
-        tracker = ScreenTimeTracker(policy = policy) {
+        tracker = ScreenTimeTracker(policy) {
             onLimitReached()
         }
 
         val calendar = Calendar.getInstance()
         val totalDailyLimit = screenTimeStore.getTotalLimitSec(calendar, policy)
         val savedUsedSec = screenTimeStore.getUsedSec()
-        tracker.restoreUsedAndLimit(used = savedUsedSec, limit = totalDailyLimit)
+        tracker.restoreUsedAndLimit(savedUsedSec, totalDailyLimit)
         val initialRemaining = tracker.getRemainingSec()
         modeManager.setScreenTimeRemainingSec(initialRemaining)
         lastSavedUsedSec = savedUsedSec
