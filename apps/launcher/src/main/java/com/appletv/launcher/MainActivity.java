@@ -1744,6 +1744,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** Keep a normal Settings click for the TV; the launcher's choices live behind hold OK. */
     private void showSettingsMenu() {
+        if (ModeManager.isKidMode(this)) return;
         View anchor = findViewById(R.id.btnSettings);
         View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
         LinearLayout rows = panel.findViewById(R.id.rows);
@@ -1790,6 +1791,74 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             return true;
         });
         rows.addView(row);
+    }
+
+    @Override
+    public void onTileLongPressed(int position, View card) {
+        if (ModeManager.isKidMode(this)) return;
+        AppAdapter.Entry entry = adapter.entryAt(position);
+        if (entry == null || entry.kind == AppAdapter.Entry.EMPTY || entry.kind == AppAdapter.Entry.HOME_SETTINGS) return;
+
+        View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        PopupWindow popup = glassPopup(panel, (int) (210 * density));
+
+        List<String> dockPkgs = adapter.currentDockPackages();
+        int dockIdx = dockPkgs.indexOf(entry.pkg);
+        if (dockIdx >= 0) {
+            if (dockIdx > 0) {
+                addSettingsMenuRow(rows, popup, R.string.move_left, () -> {
+                    Config.saveDockOverride(this, Config.moveInDock(dockPkgs, entry.pkg, -1));
+                    applyConfigAndReload();
+                });
+            }
+            if (dockIdx < dockPkgs.size() - 1) {
+                addSettingsMenuRow(rows, popup, R.string.move_right, () -> {
+                    Config.saveDockOverride(this, Config.moveInDock(dockPkgs, entry.pkg, 1));
+                    applyConfigAndReload();
+                });
+            }
+            addSettingsMenuRow(rows, popup, R.string.unpin_from_dock, () -> {
+                Config.saveDockOverride(this, Config.unpinFromDock(dockPkgs, entry.pkg));
+                applyConfigAndReload();
+            });
+        } else if (dockPkgs.size() < COLUMNS) {
+            addSettingsMenuRow(rows, popup, R.string.pin_to_dock, () -> {
+                Config.saveDockOverride(this, Config.pinToDock(dockPkgs, entry.pkg, COLUMNS));
+                applyConfigAndReload();
+            });
+        }
+
+        if (Config.canHidePackage(entry.pkg, getPackageName())) {
+            addSettingsMenuRow(rows, popup, R.string.hide_app, () -> {
+                List<String> nextHidden = new ArrayList<>(hiddenApps);
+                if (!nextHidden.contains(entry.pkg)) nextHidden.add(entry.pkg);
+                Config.saveHiddenOverride(this, nextHidden);
+                if (dockIdx >= 0) {
+                    Config.saveDockOverride(this, Config.unpinFromDock(dockPkgs, entry.pkg));
+                }
+                applyConfigAndReload();
+            });
+        }
+
+        addSettingsMenuRow(rows, popup, R.string.app_info, () -> {
+            Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + entry.pkg));
+            open(i);
+        });
+
+        panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        popup.setWidth(Math.max((int) (210 * density), panel.getMeasuredWidth()));
+        dropIn(popup, panel, card, Gravity.START);
+        if (rows.getChildCount() > 0) rows.getChildAt(0).requestFocus();
+    }
+
+    private void applyConfigAndReload() {
+        Config cfg = Config.load(this);
+        hiddenApps = new HashSet<>(cfg.hiddenApps);
+        adapter = new AppAdapter(this, this, COLUMNS, cfg);
+        grid.setAdapter(adapter);
+        reloadTiles();
+        restoreFocus();
     }
 
     /**

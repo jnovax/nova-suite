@@ -53,6 +53,8 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
         /** Called for a D-pad direction key on a tile. Return true when handled (focus stays put). */
         boolean onTileVerticalKey(int position, int keyCode);
+
+        default void onTileLongPressed(int position, View card) {}
     }
 
     static final class Entry {
@@ -342,11 +344,9 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         }
         h.card.setOnClickListener(v -> launch(e));
         h.card.setOnLongClickListener(v -> {
-            Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + e.pkg));
-            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            try {
-                ctx.startActivity(i);
-            } catch (ActivityNotFoundException ignored) {
+            int pos = h.getBindingAdapterPosition();
+            if (listener != null && pos != RecyclerView.NO_POSITION) {
+                listener.onTileLongPressed(pos, v);
             }
             return true;
         });
@@ -417,6 +417,19 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
     String labelAt(int position) {
         return position >= 0 && position < items.size() ? items.get(position).label : "";
+    }
+
+    Entry entryAt(int position) {
+        return position >= 0 && position < items.size() ? items.get(position) : null;
+    }
+
+    List<String> currentDockPackages() {
+        List<String> out = new ArrayList<>();
+        for (int i = 0; i < docked && i < items.size(); i++) {
+            Entry e = items.get(i);
+            if (e.kind != Entry.EMPTY) out.add(e.pkg);
+        }
+        return out;
     }
 
     float focusScale() {
