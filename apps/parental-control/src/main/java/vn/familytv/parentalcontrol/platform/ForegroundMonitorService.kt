@@ -379,9 +379,9 @@ class ForegroundMonitorService : AccessibilityService() {
         if (!::modeBroadcastSender.isInitialized) return
         val now = System.currentTimeMillis()
         modeBroadcastSender.sendModeChanged(
-            mode = modeManager.getMode(),
-            sessionRemainingSec = modeManager.getSessionRemainingSec(now),
-            isQuizActive = timeLockOverlayManager.isShowing()
+            modeManager.getMode(),
+            modeManager.getSessionRemainingSec(now),
+            timeLockOverlayManager.isShowing()
         )
     }
 
