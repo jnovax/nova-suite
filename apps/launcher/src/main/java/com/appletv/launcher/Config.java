@@ -34,6 +34,11 @@ final class Config {
     static final String FILE_NAME = "config.json";
     static final String WALLPAPER_NAME = "wallpaper.jpg";
     static final String SETTINGS_NAME = "launcher_settings";
+    static final String KEY_DOCK_OVERRIDE = "dock_apps_override";
+    static final String KEY_HIDDEN_OVERRIDE = "hidden_apps_override";
+    static final String KEY_REMOTE_OVERRIDE = "remote_keys_override";
+    static final String KEY_DIMMER_LEVEL = "night_dimmer_level";
+    static final String KEY_SLEEP_END_MS = "sleep_timer_end_ms";
     private static final String THEME_REVISION_NAME = "theme_revision";
     private static final String THEME_SIGNATURE_KEY = "theme_signature";
 
@@ -190,6 +195,19 @@ final class Config {
         if (chosenColumns >= 4 && chosenColumns <= 7) columns = chosenColumns;
         animations = choices.getBoolean("animations", animations);
         advancedEffects = choices.getBoolean("advanced_effects", advancedEffects);
+        if (choices.contains(KEY_DOCK_OVERRIDE)) {
+            dock = parseCsvList(choices.getString(KEY_DOCK_OVERRIDE, ""));
+        }
+        if (choices.contains(KEY_HIDDEN_OVERRIDE)) {
+            hidden = parseCsvList(choices.getString(KEY_HIDDEN_OVERRIDE, ""));
+        }
+        if (choices.contains(KEY_REMOTE_OVERRIDE)) {
+            try {
+                JSONObject rkJson = new JSONObject();
+                rkJson.put("remote_keys", new JSONObject(choices.getString(KEY_REMOTE_OVERRIDE, "{}")));
+                parseRemoteKeys(rkJson, remoteKeys);
+            } catch (Exception ignored) {}
+        }
         File wallpaper = dir != null ? new File(dir, WALLPAPER_NAME) : null;
         if (wallpaper != null && !(wallpaper.isFile() && wallpaper.length() > 0)) wallpaper = null;
         // A theme can also switch the wallpaper off while the file is still there.
@@ -328,5 +346,131 @@ final class Config {
                 }
             } catch (NumberFormatException ignored) {}
         }
+    }
+
+    static List<String> parseCsvList(String csv) {
+        if (csv == null || csv.trim().isEmpty()) return new ArrayList<>();
+        String[] parts = csv.split(",");
+        List<String> out = new ArrayList<>();
+        for (String p : parts) {
+            String trimmed = p.trim();
+            if (!trimmed.isEmpty() && !out.contains(trimmed)) out.add(trimmed);
+        }
+        return out;
+    }
+
+    static String toCsvList(List<String> items) {
+        if (items == null || items.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder();
+        for (String item : items) {
+            if (item == null || item.trim().isEmpty()) continue;
+            if (sb.length() > 0) sb.append(',');
+            sb.append(item.trim());
+        }
+        return sb.toString();
+    }
+
+    static List<String> pinToDock(List<String> currentDock, String pkg, int maxColumns) {
+        List<String> next = new ArrayList<>(currentDock != null ? currentDock : Collections.emptyList());
+        if (pkg == null || pkg.isEmpty() || next.contains(pkg) || next.size() >= maxColumns) return next;
+        next.add(pkg);
+        return next;
+    }
+
+    static List<String> unpinFromDock(List<String> currentDock, String pkg) {
+        List<String> next = new ArrayList<>(currentDock != null ? currentDock : Collections.emptyList());
+        next.remove(pkg);
+        return next;
+    }
+
+    static List<String> moveInDock(List<String> currentDock, String pkg, int delta) {
+        List<String> next = new ArrayList<>(currentDock != null ? currentDock : Collections.emptyList());
+        int idx = next.indexOf(pkg);
+        int target = idx + delta;
+        if (idx < 0 || target < 0 || target >= next.size()) return next;
+        Collections.swap(next, idx, target);
+        return next;
+    }
+
+    static boolean canHidePackage(String pkg, String ownPkg) {
+        if (pkg == null || pkg.isEmpty()) return false;
+        if (pkg.equals(ownPkg)) return false;
+        if (ModeManager.isFamilyTimePackage(pkg)) return false;
+        return true;
+    }
+
+    static int nextSleepTimerMinutes(int currentMinutes) {
+        if (currentMinutes <= 0) return 15;
+        if (currentMinutes <= 15) return 30;
+        if (currentMinutes <= 30) return 60;
+        if (currentMinutes <= 60) return 90;
+        return 0;
+    }
+
+    static int nextNightDimmerLevel(int currentLevel) {
+        if (currentLevel <= 0) return 25;
+        if (currentLevel <= 25) return 50;
+        if (currentLevel <= 50) return 70;
+        return 0;
+    }
+
+    static boolean isProtectedRemoteKey(int keyCode) {
+        switch (keyCode) {
+            case android.view.KeyEvent.KEYCODE_DPAD_UP:
+            case android.view.KeyEvent.KEYCODE_DPAD_DOWN:
+            case android.view.KeyEvent.KEYCODE_DPAD_LEFT:
+            case android.view.KeyEvent.KEYCODE_DPAD_RIGHT:
+            case android.view.KeyEvent.KEYCODE_DPAD_CENTER:
+            case android.view.KeyEvent.KEYCODE_ENTER:
+            case android.view.KeyEvent.KEYCODE_NUMPAD_ENTER:
+            case android.view.KeyEvent.KEYCODE_BACK:
+            case android.view.KeyEvent.KEYCODE_HOME:
+            case android.view.KeyEvent.KEYCODE_VOLUME_UP:
+            case android.view.KeyEvent.KEYCODE_VOLUME_DOWN:
+            case android.view.KeyEvent.KEYCODE_VOLUME_MUTE:
+            case android.view.KeyEvent.KEYCODE_POWER:
+            case android.view.KeyEvent.KEYCODE_SLEEP:
+            case android.view.KeyEvent.KEYCODE_WAKEUP:
+                return true;
+            default:
+                return keyCode <= 0;
+        }
+    }
+
+    static void saveDockOverride(Context ctx, List<String> dock) {
+        ctx.getSharedPreferences(SETTINGS_NAME, Context.MODE_PRIVATE)
+                .edit().putString(KEY_DOCK_OVERRIDE, toCsvList(dock)).apply();
+    }
+
+    static void saveHiddenOverride(Context ctx, List<String> hidden) {
+        ctx.getSharedPreferences(SETTINGS_NAME, Context.MODE_PRIVATE)
+                .edit().putString(KEY_HIDDEN_OVERRIDE, toCsvList(hidden)).apply();
+    }
+
+    static Map<Integer, String> loadRemoteKeysOverride(Context ctx) {
+        Map<Integer, String> out = new HashMap<>();
+        SharedPreferences prefs = ctx.getSharedPreferences(SETTINGS_NAME, Context.MODE_PRIVATE);
+        if (!prefs.contains(KEY_REMOTE_OVERRIDE)) return out;
+        try {
+            JSONObject rkJson = new JSONObject();
+            rkJson.put("remote_keys", new JSONObject(prefs.getString(KEY_REMOTE_OVERRIDE, "{}")));
+            parseRemoteKeys(rkJson, out);
+        } catch (Exception ignored) {}
+        return out;
+    }
+
+    static void saveRemoteKeysOverride(Context ctx, Map<Integer, String> map) {
+        JSONObject obj = new JSONObject();
+        if (map != null) {
+            for (Map.Entry<Integer, String> e : map.entrySet()) {
+                try {
+                    if (e.getValue() != null && !e.getValue().trim().isEmpty()) {
+                        obj.put(String.valueOf(e.getKey()), e.getValue().trim());
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+        ctx.getSharedPreferences(SETTINGS_NAME, Context.MODE_PRIVATE)
+                .edit().putString(KEY_REMOTE_OVERRIDE, obj.toString()).apply();
     }
 }
