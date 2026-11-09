@@ -849,9 +849,13 @@ class MainActivity : Activity() {
             isChangingPin = false
             renderedState = null
             updateScreen()
+        }.apply {
+            textSize = 14f
+            minimumHeight = views.dp(40)
+            setPadding(views.dp(24), views.dp(8), views.dp(24), views.dp(8))
         }
         (backBtn.layoutParams as? LinearLayout.LayoutParams)?.apply {
-            topMargin = views.dp(16)
+            topMargin = views.dp(14)
             width = LinearLayout.LayoutParams.WRAP_CONTENT
             gravity = Gravity.CENTER_HORIZONTAL
         }
@@ -945,6 +949,10 @@ class MainActivity : Activity() {
             isEnrollingTotp = false
             renderedState = null
             updateScreen()
+        }.apply {
+            textSize = 14f
+            minimumHeight = views.dp(40)
+            setPadding(views.dp(24), views.dp(8), views.dp(24), views.dp(8))
         }
         (backBtn.layoutParams as? LinearLayout.LayoutParams)?.apply {
             topMargin = views.dp(14)

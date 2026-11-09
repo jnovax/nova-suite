@@ -53,7 +53,7 @@ class DpadPinPadView(
             slotViews.add(slot)
             slotsRow.addView(slot)
         }
-        addView(slotsRow, LayoutParams(dp(280), LayoutParams.WRAP_CONTENT).apply {
+        addView(slotsRow, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
             gravity = Gravity.CENTER_HORIZONTAL
         })
 
@@ -101,7 +101,7 @@ class DpadPinPadView(
             btn.layoutParams = lp
             grid.addView(btn)
         }
-        addView(grid, LayoutParams(dp(280), LayoutParams.WRAP_CONTENT).apply {
+        addView(grid, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
             gravity = Gravity.CENTER_HORIZONTAL
         })
     }

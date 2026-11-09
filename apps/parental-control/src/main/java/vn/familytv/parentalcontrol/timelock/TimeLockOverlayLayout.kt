@@ -192,8 +192,16 @@ class TimeLockOverlayLayout(
 
         val backBtn = views.button(container, context.getString(R.string.back_action), R.id.back_action) {
             showNoticeView()
+        }.apply {
+            textSize = 14f
+            minimumHeight = views.dp(40)
+            setPadding(views.dp(24), views.dp(8), views.dp(24), views.dp(8))
+            (layoutParams as? LinearLayout.LayoutParams)?.apply {
+                width = LinearLayout.LayoutParams.WRAP_CONTENT
+                topMargin = views.dp(14)
+                gravity = Gravity.CENTER_HORIZONTAL
+            }
         }
-        (backBtn.layoutParams as? LinearLayout.LayoutParams)?.topMargin = views.dp(16)
 
         views.focusLater(pinPad.firstButton)
     }

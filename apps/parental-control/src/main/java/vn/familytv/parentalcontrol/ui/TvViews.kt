@@ -65,8 +65,11 @@ class TvViews(private val context: Context) {
         ))
         setOnClickListener { action() }
         parent.addView(this, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
-        ).apply { topMargin = dp(10) })
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT,
+        ).apply {
+            topMargin = dp(10)
+            gravity = Gravity.CENTER_HORIZONTAL
+        })
     }
 
     fun status(parent: LinearLayout, label: CharSequence, value: CharSequence, complete: Boolean) {
