@@ -50,4 +50,36 @@ public class AppAdapterLayoutTest {
         assertEquals(370f, focusedW, 0.5f);
         assertEquals(222f, focusedH, 0.5f);
     }
+
+    @Test
+    public void dockTilesHideBottomLabelWhileGridTilesShowIt() {
+        int dockSize = 5;
+        for (int pos = 0; pos < dockSize; pos++) {
+            org.junit.Assert.assertFalse(AppAdapter.shouldShowTileName(pos, dockSize));
+        }
+        org.junit.Assert.assertTrue(AppAdapter.shouldShowTileName(5, dockSize));
+        org.junit.Assert.assertTrue(AppAdapter.shouldShowTileName(12, dockSize));
+    }
+
+    @Test
+    public void dockSitsNearBottomAndKeepsFirstGridRowOffScreenYetCompact() {
+        float density = 2.0f;
+        int gridHeightPx = 1000;
+        int tileHeightPx = 180; // 90dp * 2
+        int paddingTop = DockDecoration.computeDockPaddingTopPx(gridHeightPx, tileHeightPx, density);
+
+        // Platter bottom = paddingTop + outRect.top (20px) + itemPadTop (20px) + tileH (180px) + padV (20px)
+        int platterBottom = paddingTop + Math.round((2 * DockDecoration.PAD_V_DP + 10f) * density) + tileHeightPx;
+        // Dock platter sits 20dp (40px) above bottom edge
+        assertEquals(gridHeightPx - Math.round(DockDecoration.DOCK_BOTTOM_MARGIN_DP * density), platterBottom);
+
+        // First grid row card top when scrollY = 0 must be >= gridHeightPx (off-screen)
+        int row1CardTop = platterBottom
+                + Math.round(DockDecoration.PAD_V_DP * density)
+                + Math.round(DockDecoration.FIRST_ROW_TOP_GAP_DP * density)
+                + Math.round(10f * density);
+        assertTrue(row1CardTop >= gridHeightPx);
+        // Yet the visual gap from dock platter bottom to row 1 card top is compact (<= 36dp = 72px, down from 168px)
+        assertTrue(row1CardTop - platterBottom <= Math.round(36f * density));
+    }
 }

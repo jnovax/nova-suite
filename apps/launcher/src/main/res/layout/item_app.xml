@@ -54,14 +54,20 @@
             android:visibility="gone" />
     </FrameLayout>
 
-    <!-- App name under the focused icon (tvOS Caption 1 semibold); hidden per request. -->
+    <!-- App name under grid tiles below the dock (tvOS Caption 1 semibold); hidden on dock row. -->
     <TextView
         android:id="@+id/name"
         android:layout_width="@dimen/tvos_icon_w"
-        android:layout_height="0dp"
+        android:layout_height="20dp"
         android:layout_gravity="center_horizontal|top"
         android:gravity="center"
         android:singleLine="true"
         android:ellipsize="end"
+        android:textColor="@color/tvos_label_primary"
+        android:textSize="@dimen/tvos_text_caption1"
+        android:fontFamily="sans-serif-medium"
+        android:shadowColor="#F2000000"
+        android:shadowDy="2"
+        android:shadowRadius="8"
         android:visibility="gone" />
 </FrameLayout>

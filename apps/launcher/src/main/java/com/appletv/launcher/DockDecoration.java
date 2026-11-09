@@ -15,6 +15,16 @@ public class DockDecoration extends RecyclerView.ItemDecoration {
     static final float PAD_H_DP = 12f; // 24px inner horizontal padding (spec: 20-28px)
     static final float PAD_V_DP = 10f; // 20px inner vertical padding (spec: 16-24px)
     static final float RADIUS_DP = 14f; // 28px corner radius (spec: 24-32px)
+    static final float DOCK_BOTTOM_MARGIN_DP = 20f; // Lower dock closer to bottom edge (40px on 1080p)
+    static final float FIRST_ROW_TOP_GAP_DP = 14f; // Compact gap below dock while keeping row 1 off-screen at rest
+
+    static int computeDockPaddingTopPx(int gridHeightPx, int tileHeightPx, float density) {
+        int bottomMargin = Math.round(DOCK_BOTTOM_MARGIN_DP * density);
+        int padV = Math.round(PAD_V_DP * density);
+        int itemPadTop = Math.round(10f * density);
+        int targetTop = gridHeightPx - bottomMargin - tileHeightPx - (2 * padV + itemPadTop);
+        return Math.max(Math.round(60f * density), targetTop);
+    }
 
     private final int dockSize;
     private final float density;
@@ -36,15 +46,15 @@ public class DockDecoration extends RecyclerView.ItemDecoration {
                                @NonNull RecyclerView.State state) {
         int pos = parent.getChildAdapterPosition(view);
         if (pos >= 0 && pos < dockSize) {
-            outRect.top = (int) (PAD_V_DP * density);
-            outRect.bottom = (int) (PAD_V_DP * density);
+            outRect.top = Math.round(PAD_V_DP * density);
+            outRect.bottom = Math.round(PAD_V_DP * density);
         } else if (pos >= dockSize && pos < dockSize + dockSize) {
-            // First row below dock: generous gap so it stays completely off-screen until scrolling down
-            outRect.top = (int) (64f * density);
-            outRect.bottom = (int) (12f * density);
+            // First row below dock: compact gap that still keeps it off-screen until scrolling down
+            outRect.top = Math.round(FIRST_ROW_TOP_GAP_DP * density);
+            outRect.bottom = Math.round(10f * density);
         } else {
-            outRect.top = (int) (12f * density);
-            outRect.bottom = (int) (12f * density);
+            outRect.top = Math.round(10f * density);
+            outRect.bottom = Math.round(10f * density);
         }
     }
 

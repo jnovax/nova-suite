@@ -88,8 +88,14 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     }
 
     static final float FOCUS_SCALE = 1.2333f;
+    static final float UNHOVERED_NAME_ALPHA = 0.78f;
     /** Design size of a tile (dp); tiles shrink from here when the columns don't fit, see tileWidthPx. */
     static final float DESIGN_W_DP = 150f, DESIGN_H_DP = 90f;
+
+    /** Dock tiles use the Top Shelf hero title above the dock; lower grid rows always show their label below. */
+    static boolean shouldShowTileName(int position, int dockSize) {
+        return position >= dockSize;
+    }
 
     /**
      * Tile width for a grid of this inner width: the cell minus room for the focus zoom and the glass
@@ -296,8 +302,8 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         card.setLayoutParams(cardLp);
         View name = v.findViewById(R.id.name);
         ViewGroup.MarginLayoutParams nameLp = (ViewGroup.MarginLayoutParams) name.getLayoutParams();
-        nameLp.width = w;
-        nameLp.topMargin = h + Math.round(16 * density);
+        nameLp.width = Math.round(w * FOCUS_SCALE);
+        nameLp.topMargin = h + Math.round(6 * density);
         name.setLayoutParams(nameLp);
         return new Holder(v, this, listener, animations, advancedEffects, reducedMotion);
     }
@@ -309,24 +315,27 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             // A free dock slot keeps its place in the row and the band, but shows nothing and takes no focus.
             h.card.setVisibility(View.INVISIBLE);
             h.card.setFocusable(false);
-            h.name.setVisibility(View.INVISIBLE);
+            h.name.setVisibility(View.GONE);
             h.banner.setImageDrawable(null);
             h.icon.setImageDrawable(null);
             h.card.setOnClickListener(null);
             h.card.setOnLongClickListener(null);
             return;
         }
+        float density = ctx.getResources().getDisplayMetrics().density;
+        boolean focused = h.card.isFocused();   // a rebind after reload() can hit the focused tile
+        boolean showName = shouldShowTileName(position, dockSize);
         h.card.setVisibility(View.VISIBLE);
         h.card.setFocusable(true);
         h.name.setText(e.name);
-        h.name.setVisibility(View.VISIBLE);
-        boolean focused = h.card.isFocused();   // a rebind after reload() can hit the focused tile
-        h.name.setAlpha(focused ? 1f : 0f);
+        h.name.setVisibility(showName ? View.VISIBLE : View.GONE);
+        h.name.setAlpha(focused ? 1f : UNHOVERED_NAME_ALPHA);
+        h.name.setTranslationY(focused && showName ? 8f * density : 0f);
         h.card.setScaleX(focused && animations ? FOCUS_SCALE : 1f);
         h.card.setScaleY(focused && animations ? FOCUS_SCALE : 1f);
         h.card.setTranslationX(0f);
         h.card.setTranslationY(0f);
-        h.card.setTranslationZ(focused ? 15f * ctx.getResources().getDisplayMetrics().density : 0f);
+        h.card.setTranslationZ(focused ? 15f * density : 0f);
         h.banner.setScaleX(1f);
         h.banner.setScaleY(1f);
         if (e.banner != null) {
@@ -540,14 +549,16 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 float scale = !animations ? 1f : FOCUS_SCALE;
                 float s = focused ? scale : 1f;
                 float liftZ = focused ? 15f * density : 0f;
+                float targetNameAlpha = focused ? 1f : UNHOVERED_NAME_ALPHA;
+                float targetNameY = focused ? 8f * density : 0f;
                 if (!animations) {
                     view.setScaleX(s);
                     view.setScaleY(s);
                     view.setTranslationX(0f);
                     view.setTranslationY(0f);
                     view.setTranslationZ(liftZ);
-                    name.setAlpha(focused ? 1f : 0f);
-                    name.setTranslationY(0f);
+                    name.setAlpha(targetNameAlpha);
+                    name.setTranslationY(targetNameY);
                 } else if (reducedMotion) {
                     view.animate().scaleX(s).scaleY(s)
                             .translationX(0f)
@@ -556,7 +567,9 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                             .setDuration(focused ? 120 : 80)
                             .setInterpolator(new DecelerateInterpolator())
                             .withLayer().start();
-                    name.animate().alpha(focused ? 1f : 0f).setDuration(100).start();
+                    name.animate().alpha(targetNameAlpha)
+                            .translationY(targetNameY)
+                            .setDuration(100).start();
                 } else {
                     view.animate().scaleX(s).scaleY(s)
                             .translationX(0f)
@@ -565,8 +578,8 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                             .setDuration(focused ? 240 : 180)
                             .setInterpolator(focused ? new PathInterpolator(0.32f, 1.25f, 0.42f, 1.0f) : new PathInterpolator(0.25f, 0.1f, 0.25f, 1.0f))
                             .withLayer().start();
-                    name.animate().alpha(focused ? 1f : 0f)
-                            .translationY(focused ? density * 4f : -density * 6f)
+                    name.animate().alpha(targetNameAlpha)
+                            .translationY(targetNameY)
                             .setDuration(220).start();
                 }
                 int pos = getBindingAdapterPosition();
