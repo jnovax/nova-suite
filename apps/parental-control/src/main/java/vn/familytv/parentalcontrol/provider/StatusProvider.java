@@ -98,6 +98,9 @@ public class StatusProvider extends ContentProvider {
 
     public Cursor queryStatus(String[] projection) {
         ModeStateManager manager = stateManager != null ? stateManager : ModeStateManager.instance;
+        if (manager == ModeStateManager.instance && getContext() != null) {
+            manager.loadState(getContext());
+        }
         Mode mode = manager.getMode();
         long remainingSeconds = manager.getScreenTimeRemainingSec();
         return buildCursor(mode, remainingSeconds, DEFAULT_SESSION_LIMIT_SECONDS, DEFAULT_WHITELIST_PACKAGES, projection);

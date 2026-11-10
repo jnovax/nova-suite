@@ -26,6 +26,7 @@ public final class ModeManager {
     public static final String TARGET_PACKAGE = "vn.familytv.parentalcontrol";
     public static final String ACTION_MODE_CHANGED = "vn.familytv.parentalcontrol.ACTION_MODE_CHANGED";
     public static final String ACTION_AUTHENTICATE = "vn.familytv.parentalcontrol.ACTION_AUTHENTICATE";
+    public static final String ACTION_LOCK_KID = "vn.familytv.parentalcontrol.ACTION_LOCK_KID";
     public static final String EXTRA_MODE = "extra_mode";
     public static final String EXTRA_ALLOWED_PACKAGES = "extra_allowed_packages";
 
@@ -206,6 +207,29 @@ public final class ModeManager {
             unfocusedColor
         };
         return new ColorStateList(states, colors);
+    }
+
+    /**
+     * Queries current mode from StatusProvider (tv-parental-control).
+     * Returns null if provider is unavailable or query fails.
+     */
+    public static String getModeFromProvider(Context context) {
+        if (context == null) return null;
+        try (Cursor cursor = context.getContentResolver().query(
+                Uri.parse(StatusProviderContract.CONTENT_URI_STRING),
+                new String[]{StatusProviderContract.COLUMN_CURRENT_MODE},
+                null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int idx = cursor.getColumnIndex(StatusProviderContract.COLUMN_CURRENT_MODE);
+                if (idx >= 0) {
+                    String raw = cursor.getString(idx);
+                    if (raw != null) {
+                        return normalizeMode(raw);
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 
     /**

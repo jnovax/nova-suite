@@ -90,6 +90,7 @@ public class MainActivity extends Activity {
         broadcastSender = new ModeBroadcastSender(this);
 
         ModeStateManager modeManager = ModeStateManager.getInstance();
+        modeManager.loadState(this);
         if (modeManager.getMode() == Mode.PARENT) {
             long remSec = modeManager.getSessionRemainingSec(System.currentTimeMillis());
             if (remSec > 0) {
@@ -105,6 +106,7 @@ public class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         ModeStateManager modeManager = ModeStateManager.getInstance();
+        modeManager.loadState(this);
         if (modeManager.getMode() == Mode.PARENT) {
             long remSec = modeManager.getSessionRemainingSec(System.currentTimeMillis());
             if (remSec > 0) {
@@ -132,6 +134,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         ModeStateManager modeManager = ModeStateManager.getInstance();
+        modeManager.loadState(this);
         if (modeManager.getMode() == Mode.PARENT && !sessionManager.isParentModeActive()) {
             long remSec = modeManager.getSessionRemainingSec(System.currentTimeMillis());
             if (remSec > 0) {
@@ -386,7 +389,9 @@ public class MainActivity extends Activity {
                         @Override
                         public void onLockAndExit() {
                             sessionManager.invalidateSession();
-                            ModeStateManager.getInstance().expireSession();
+                            ModeStateManager manager = ModeStateManager.getInstance();
+                            manager.expireSession();
+                            manager.saveState(MainActivity.this);
                             broadcastSender.sendModeChanged(Mode.KID, 0, false);
                             finishAffinity();
                         }
@@ -498,7 +503,9 @@ public class MainActivity extends Activity {
         if (valid) {
             rateLimiter.recordSuccess();
             sessionManager.startSession();
-            ModeStateManager.getInstance().onParentAuthenticated(nowMs);
+            ModeStateManager manager = ModeStateManager.getInstance();
+            manager.onParentAuthenticated(nowMs);
+            manager.saveState(this);
             broadcastSender.sendModeChanged(
                     Mode.PARENT,
                     (int) sessionManager.remainingSessionSeconds(),

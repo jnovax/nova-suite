@@ -98,6 +98,11 @@ public class ForegroundMonitorService extends AccessibilityService {
                 if (showExtension && timeLockOverlayManager != null) {
                     timeLockOverlayManager.showExtensionSelector();
                 }
+            } else if (com.appletv.contract.ModeContract.ACTION_LOCK_KID.equals(action)) {
+                Log.i(TAG, "ACTION_LOCK_KID received");
+                modeManager.expireSession();
+                modeManager.saveState(ForegroundMonitorService.this);
+                broadcastState();
             }
         }
     };
@@ -114,6 +119,7 @@ public class ForegroundMonitorService extends AccessibilityService {
                         tracker.setScreenOn(false);
                     }
                     modeManager.onScreenOff();
+                    modeManager.saveState(ForegroundMonitorService.this);
                     if (screenTimeStore != null && tracker != null) {
                         lastSavedUsedSec = tracker.getUsedSec();
                         screenTimeStore.setUsedSec(lastSavedUsedSec);
@@ -233,6 +239,7 @@ public class ForegroundMonitorService extends AccessibilityService {
     @Override
     public void onCreate() {
         super.onCreate();
+        modeManager.loadState(this);
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         screenTimeStore = new ScreenTimeStore(prefs);
         securityStore = SecurityStore.fromContext(this);
@@ -270,6 +277,7 @@ public class ForegroundMonitorService extends AccessibilityService {
         debugFilter.addAction(ACTION_SET_SCREENTIME);
         debugFilter.addAction(ACTION_TRIGGER_TIMELOCK);
         debugFilter.addAction(ACTION_TRIGGER_QUIZ);
+        debugFilter.addAction(com.appletv.contract.ModeContract.ACTION_LOCK_KID);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(debugReceiver, debugFilter, Context.RECEIVER_EXPORTED);

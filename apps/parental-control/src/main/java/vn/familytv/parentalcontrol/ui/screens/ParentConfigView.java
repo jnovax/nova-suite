@@ -91,7 +91,12 @@ public class ParentConfigView extends LinearLayout {
         lockExitBtn.setMinimumHeight(views.dp(38));
         lockExitBtn.setPadding(views.dp(14), views.dp(6), views.dp(14), views.dp(6));
         lockExitBtn.setNextFocusDownId(R.id.view_timeline_action);
-        topBar.addView(lockExitBtn, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+        LayoutParams lockLp = (LayoutParams) lockExitBtn.getLayoutParams();
+        if (lockLp != null) {
+            lockLp.topMargin = 0;
+            lockLp.width = LayoutParams.WRAP_CONTENT;
+            lockExitBtn.setLayoutParams(lockLp);
+        }
 
         addView(topBar);
 

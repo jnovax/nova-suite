@@ -1,6 +1,7 @@
 package vn.familytv.parentalcontrol.auth;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
@@ -145,6 +146,7 @@ public class RemoteAuthActivity extends Activity {
                 ModeStateManager manager = ModeStateManager.getInstance();
                 long nowMs = System.currentTimeMillis();
                 manager.onParentAuthenticated(nowMs);
+                manager.saveState(RemoteAuthActivity.this);
                 broadcastSender.sendModeChanged(
                         Mode.PARENT,
                         manager.getSessionRemainingSec(nowMs),
@@ -152,6 +154,11 @@ public class RemoteAuthActivity extends Activity {
                 );
                 Toast.makeText(RemoteAuthActivity.this, "Đã mở khóa Chế độ Phụ huynh!", Toast.LENGTH_SHORT).show();
                 setResult(RESULT_OK);
+                if (getIntent().getBooleanExtra(com.appletv.contract.ModeContract.EXTRA_OPEN_SETTINGS, false)) {
+                    Intent openApp = new Intent(RemoteAuthActivity.this, vn.familytv.parentalcontrol.MainActivity.class);
+                    openApp.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(openApp);
+                }
                 finish();
             } else {
                 rateLimiter.recordFailure();

@@ -61,6 +61,17 @@ bash reports/apply_<ts>.sh
 
 *(Optional 1-Click Interactive Mode: `./tools/setup.sh <TV_IP>`)*
 
+### C. Simulation & Web Preview Workflow
+```bash
+# 1. Interactive Web Simulation (tvOS 18 Home + FamilyTime + Remote D-pad):
+python3 -m http.server 8888 --directory docs/preview
+# Access via browser at http://localhost:8888/
+
+# 2. Android TV Emulator / Local AVD:
+./tools/deploy.sh all [EMULATOR_DEVICE_ID]
+```
+👉 *See [`docs/SIMULATION.md`](docs/SIMULATION.md) for full emulator, ADB testing, and simulation documentation.*
+
 ---
 
 ## 🛠️ Tool Suite Reference

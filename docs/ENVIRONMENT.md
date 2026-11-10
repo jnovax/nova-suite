@@ -47,4 +47,13 @@ adb version
 ./gradlew assembleRelease
 ```
 Binary APK sau khi biên dịch nằm tại:
-`app/build/outputs/apk/release/app-release.apk`
+- `apps/launcher/build/outputs/apk/release/launcher-release.apk`
+- `apps/parental-control/build/outputs/apk/release/parental-control-release.apk`
+
+---
+
+## 🧪 Môi trường Simulation & Giả lập
+
+Chi tiết xem tại [`docs/SIMULATION.md`](SIMULATION.md):
+- **Web Simulation (`docs/preview/index.html`):** `python3 -m http.server 8888 --directory docs/preview` (truy cập `http://localhost:8888/`)
+- **Android TV Emulator (ADB):** `./tools/deploy.sh all [DEVICE_ID]`

@@ -104,4 +104,13 @@ public class ModeStateManagerTest {
         Assert.assertEquals(900, manager.getScreenTimeRemainingSec());
         Assert.assertEquals(0, manager.getSessionRemainingSec(100000L));
     }
+
+    @Test
+    public void testDefaultSessionDurationIs30Minutes() {
+        ModeStateManager manager = new ModeStateManager();
+        long now = 100000L;
+        manager.onParentAuthenticated(now);
+        Assert.assertEquals(Mode.PARENT, manager.getMode());
+        Assert.assertEquals(1800, manager.getSessionRemainingSec(now));
+    }
 }

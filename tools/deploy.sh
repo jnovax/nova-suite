@@ -30,8 +30,23 @@ case "$TARGET" in
         ;;
 esac
 
-if [ -z "$TARGET_DEV" ]; then
-    TARGET_DEV=$(adb devices | grep -E '\b(device)\b' | awk '{print $1}' | head -n 1 || true)
+ADB_CMD="adb"
+IS_WIN_ADB=false
+
+if [ -n "$TARGET_DEV" ]; then
+    if [[ "$TARGET_DEV" == emulator-* ]] && [ -x "/mnt/d/Android/platform-tools/adb.exe" ]; then
+        ADB_CMD="/mnt/d/Android/platform-tools/adb.exe"
+        IS_WIN_ADB=true
+    fi
+else
+    TARGET_DEV=$(adb devices 2>/dev/null | grep -E '\b(device)\b' | awk '{print $1}' | head -n 1 || true)
+    if [ -z "$TARGET_DEV" ] && [ -x "/mnt/d/Android/platform-tools/adb.exe" ]; then
+        TARGET_DEV=$(/mnt/d/Android/platform-tools/adb.exe devices 2>/dev/null | grep -E '\b(device)\b' | awk '{print $1}' | head -n 1 || true)
+        if [ -n "$TARGET_DEV" ]; then
+            ADB_CMD="/mnt/d/Android/platform-tools/adb.exe"
+            IS_WIN_ADB=true
+        fi
+    fi
 fi
 
 if [ -z "$TARGET_DEV" ]; then
@@ -40,8 +55,28 @@ if [ -z "$TARGET_DEV" ]; then
 fi
 
 echo "=========================================================="
-echo "  🚀 Deploying Target: $TARGET to $TARGET_DEV"
+echo "  🚀 Deploying Target: $TARGET to $TARGET_DEV (via $ADB_CMD)"
 echo "=========================================================="
+
+adb_exec() {
+    if [ "$IS_WIN_ADB" = true ]; then
+        "$ADB_CMD" "$@" </dev/null
+    else
+        adb "$@"
+    fi
+}
+
+adb_install() {
+    local apk="$1"
+    if [ "$IS_WIN_ADB" = true ]; then
+        mkdir -p /mnt/d/Android/temp
+        local fname="$(basename "$apk")"
+        cp "$apk" "/mnt/d/Android/temp/$fname"
+        "$ADB_CMD" -s "$TARGET_DEV" install -r "D:\\Android\\temp\\$fname" </dev/null
+    else
+        adb -s "$TARGET_DEV" install -r "$apk"
+    fi
+}
 
 deploy_launcher() {
     echo "==> Building Launcher APK..."
@@ -58,9 +93,9 @@ deploy_launcher() {
         exit 1
     fi
     echo "==> Installing Launcher to $TARGET_DEV..."
-    adb -s "$TARGET_DEV" install -r "$apk"
+    adb_install "$apk"
     echo "==> Restarting Launcher..."
-    adb -s "$TARGET_DEV" shell am start -n com.appletv.launcher/.MainActivity
+    adb_exec -s "$TARGET_DEV" shell am start -n com.appletv.launcher/.MainActivity
 }
 
 deploy_parental() {
@@ -75,7 +110,7 @@ deploy_parental() {
         exit 1
     fi
     echo "==> Installing Parental Control to $TARGET_DEV..."
-    adb -s "$TARGET_DEV" install -r "$apk"
+    adb_install "$apk"
 }
 
 case "$TARGET" in

@@ -61,4 +61,9 @@ public class ModeManagerTest {
         // Detected by intent handler
         assertTrue(ModeManager.isParentalControlInstalled(Collections.emptySet(), true));
     }
+
+    @Test
+    public void getModeFromNullContextReturnsNull() {
+        org.junit.Assert.assertNull(ModeManager.getModeFromProvider(null));
+    }
 }

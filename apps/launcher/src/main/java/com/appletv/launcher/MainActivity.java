@@ -14,6 +14,7 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.res.ColorStateList;
+import com.appletv.contract.ModeContract;
 import com.appletv.contract.TimeFormatter;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -478,6 +479,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             return;
         }
 
+        String providerMode = ModeManager.getModeFromProvider(this);
+        if (providerMode != null && !providerMode.equals(ModeManager.getMode(this))) {
+            ModeManager.setMode(this, providerMode);
+            reloadApps(true);
+        }
+
         btnMode.setVisibility(View.VISIBLE);
         boolean kidMode = ModeManager.isKidMode(this);
         if (kidMode) {
@@ -508,11 +515,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     private void handleModeButtonClick() {
         if (ModeManager.isKidMode(this)) {
-            Intent intent = new Intent(ModeManager.ACTION_AUTHENTICATE);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            try {
-                startActivity(intent);
-            } catch (ActivityNotFoundException e) {
+            if (!ModeManager.isParentalControlAvailable(this)) {
                 new AlertDialog.Builder(this)
                         .setTitle(R.string.mode_switch_title)
                         .setMessage(R.string.tv_parental_control_missing)
@@ -523,19 +526,69 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                         })
                         .setNegativeButton(android.R.string.cancel, null)
                         .show();
+                return;
             }
+
+            new AlertDialog.Builder(this)
+                    .setTitle(R.string.mode_switch_title)
+                    .setMessage(R.string.mode_kid_desc)
+                    .setPositiveButton(R.string.open_parental_control, (dialog, which) -> {
+                        Intent intent = new Intent(ModeManager.ACTION_AUTHENTICATE);
+                        intent.putExtra(ModeContract.EXTRA_OPEN_SETTINGS, true);
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        try {
+                            startActivity(intent);
+                        } catch (ActivityNotFoundException ignored) {}
+                    })
+                    .setNeutralButton(R.string.mode_switch_parent, (dialog, which) -> {
+                        Intent intent = new Intent(ModeManager.ACTION_AUTHENTICATE);
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        try {
+                            startActivity(intent);
+                        } catch (ActivityNotFoundException ignored) {}
+                    })
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show();
         } else {
             new AlertDialog.Builder(this)
                     .setTitle(R.string.mode_switch_title)
                     .setMessage(R.string.mode_parent_desc)
-                    .setPositiveButton(R.string.mode_lock_kid, (dialog, which) -> {
+                    .setPositiveButton(R.string.open_parental_control, (dialog, which) -> {
+                        openParentalControlSettings();
+                    })
+                    .setNeutralButton(R.string.mode_lock_kid, (dialog, which) -> {
                         ModeManager.setMode(this, ModeManager.MODE_KID);
+                        try {
+                            Intent lockIntent = new Intent(ModeContract.ACTION_LOCK_KID);
+                            lockIntent.setPackage(ModeManager.TARGET_PACKAGE);
+                            sendBroadcast(lockIntent);
+                        } catch (Exception ignored) {}
                         updateModeUI();
                         reloadApps(true);
                     })
                     .setNegativeButton(android.R.string.cancel, null)
                     .show();
         }
+    }
+
+    private void openParentalControlSettings() {
+        Intent intent = getPackageManager().getLeanbackLaunchIntentForPackage(ModeManager.TARGET_PACKAGE);
+        if (intent == null) {
+            intent = getPackageManager().getLaunchIntentForPackage(ModeManager.TARGET_PACKAGE);
+        }
+        if (intent != null) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try {
+                startActivity(intent);
+                return;
+            } catch (Exception ignored) {}
+        }
+        Intent authIntent = new Intent(ModeManager.ACTION_AUTHENTICATE);
+        authIntent.putExtra(ModeContract.EXTRA_OPEN_SETTINGS, true);
+        authIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            startActivity(authIntent);
+        } catch (Exception ignored) {}
     }
 
     private boolean handleLauncherActions(Intent intent) {
