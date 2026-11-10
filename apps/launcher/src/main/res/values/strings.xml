@@ -105,4 +105,21 @@
     <string name="action_inputs">Open TV Inputs Menu</string>
     <string name="action_open_app">Open App: %1$s</string>
     <string name="action_clear_mapping">Clear mapping</string>
+
+    <!-- tvOS 18 2-Column Settings Categories -->
+    <string name="tab_appearance">Appearance</string>
+    <string name="tab_display_night">Display &amp; Night</string>
+    <string name="tab_remotes">Remotes &amp; Buttons</string>
+    <string name="tab_apps_system">Apps &amp; System</string>
+
+    <!-- Night Dimmer Options -->
+    <string name="dimmer_mode_label">Night Dimmer Mode</string>
+    <string name="dimmer_mode_off">Off</string>
+    <string name="dimmer_mode_scheduled">Scheduled (9 PM – 6 AM)</string>
+    <string name="dimmer_mode_always_on">Always On</string>
+    <string name="dimmer_level_label">Dimming Intensity</string>
+    <string name="dimmer_footnote">Automatically dims the TV display overnight (21:00 to 06:00) to protect your eyes.</string>
+
+    <string name="unhide_app_desc">Select a hidden app to unhide and restore it to your home screen.</string>
+    <string name="no_remote_keys">No custom buttons mapped yet.</string>
 </resources>

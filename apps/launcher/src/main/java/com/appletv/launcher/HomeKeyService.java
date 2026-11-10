@@ -27,9 +27,16 @@ public class HomeKeyService extends AccessibilityService {
     private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
     private android.view.View dimmerView;
     private final Runnable sleepRunnable = this::executeSleepTimer;
+    private final Runnable dimmerCheckRunnable = new Runnable() {
+        @Override
+        public void run() {
+            applyDimmer(Config.getActiveDimmerAlpha(HomeKeyService.this));
+            handler.postDelayed(this, 60_000L); // Check schedule every minute
+        }
+    };
     private final android.content.SharedPreferences.OnSharedPreferenceChangeListener prefListener = (prefs, key) -> {
         lastConfigLoadTime = 0;
-        if (Config.KEY_DIMMER_LEVEL.equals(key) || Config.KEY_SLEEP_END_MS.equals(key)) {
+        if (Config.KEY_DIMMER_LEVEL.equals(key) || Config.KEY_DIMMER_MODE.equals(key) || Config.KEY_SLEEP_END_MS.equals(key)) {
             handler.post(this::syncSuiteState);
         }
     };
@@ -42,6 +49,8 @@ public class HomeKeyService extends AccessibilityService {
                 .registerOnSharedPreferenceChangeListener(prefListener);
         getConfig();
         syncSuiteState();
+        handler.removeCallbacks(dimmerCheckRunnable);
+        handler.post(dimmerCheckRunnable);
     }
 
     @Override
@@ -219,7 +228,7 @@ public class HomeKeyService extends AccessibilityService {
 
     private void syncSuiteState() {
         android.content.SharedPreferences prefs = getSharedPreferences(Config.SETTINGS_NAME, MODE_PRIVATE);
-        int dimmerLevel = prefs.getInt(Config.KEY_DIMMER_LEVEL, 0);
+        int dimmerLevel = Config.getActiveDimmerAlpha(this);
         applyDimmer(dimmerLevel);
 
         handler.removeCallbacks(sleepRunnable);

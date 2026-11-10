@@ -69,6 +69,27 @@ public class PracticalSuiteTest {
     }
 
     @Test
+    public void evaluatesNightDimmerScheduleCorrectly() {
+        // Mode OFF always returns false
+        assertFalse(Config.isDimmerTime(Config.DIMMER_MODE_OFF, 22, 21, 6));
+        assertFalse(Config.isDimmerTime(Config.DIMMER_MODE_OFF, 2, 21, 6));
+        assertFalse(Config.isDimmerTime(Config.DIMMER_MODE_OFF, 14, 21, 6));
+
+        // Mode ALWAYS_ON always returns true
+        assertTrue(Config.isDimmerTime(Config.DIMMER_MODE_ALWAYS_ON, 14, 21, 6));
+        assertTrue(Config.isDimmerTime(Config.DIMMER_MODE_ALWAYS_ON, 22, 21, 6));
+
+        // Mode SCHEDULED overnight (21:00 -> 06:00)
+        assertFalse(Config.isDimmerTime(Config.DIMMER_MODE_SCHEDULED, 20, 21, 6));
+        assertTrue(Config.isDimmerTime(Config.DIMMER_MODE_SCHEDULED, 21, 21, 6));
+        assertTrue(Config.isDimmerTime(Config.DIMMER_MODE_SCHEDULED, 23, 21, 6));
+        assertTrue(Config.isDimmerTime(Config.DIMMER_MODE_SCHEDULED, 0, 21, 6));
+        assertTrue(Config.isDimmerTime(Config.DIMMER_MODE_SCHEDULED, 5, 21, 6));
+        assertFalse(Config.isDimmerTime(Config.DIMMER_MODE_SCHEDULED, 6, 21, 6));
+        assertFalse(Config.isDimmerTime(Config.DIMMER_MODE_SCHEDULED, 12, 21, 6));
+    }
+
+    @Test
     public void protectsNavigationAndVolumeKeysFromRemapping() {
         assertTrue(Config.isProtectedRemoteKey(KeyEvent.KEYCODE_DPAD_UP));
         assertTrue(Config.isProtectedRemoteKey(KeyEvent.KEYCODE_DPAD_CENTER));

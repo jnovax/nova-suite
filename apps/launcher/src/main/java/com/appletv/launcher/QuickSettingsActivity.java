@@ -22,7 +22,6 @@ public final class QuickSettingsActivity extends Activity {
 
     private SharedPreferences prefs;
     private TextView sleepTitle;
-    private TextView dimmerTitle;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -35,13 +34,10 @@ public final class QuickSettingsActivity extends Activity {
         // 1. Sleep Timer (in-place cycle: Off -> 15m -> 30m -> 60m -> 90m -> Off)
         sleepTitle = addToggleRow(rows, R.drawable.ic_settings, formatSleepTimerText(), this::cycleSleepTimer);
 
-        // 2. Night Dimmer (in-place cycle: Off -> 25% -> 50% -> 70% -> Off)
-        dimmerTitle = addToggleRow(rows, R.drawable.ic_picture, formatNightDimmerText(), this::cycleNightDimmer);
-
-        // 3. Bluetooth & Audio shortcut
+        // 2. Bluetooth & Audio shortcut
         addActionRow(rows, R.drawable.ic_settings, getString(R.string.bluetooth_audio), this::openBluetoothSettings);
 
-        // 4. Start Screensaver immediately
+        // 3. Start Screensaver immediately
         addActionRow(rows, R.drawable.ic_picture, getString(R.string.start_screensaver), this::startScreensaver);
 
         // 5. 4K Wallpaper Picker
@@ -85,20 +81,6 @@ public final class QuickSettingsActivity extends Activity {
         long endMs = nextMins <= 0 ? 0L : System.currentTimeMillis() + nextMins * 60_000L;
         prefs.edit().putLong(Config.KEY_SLEEP_END_MS, endMs).apply();
         if (sleepTitle != null) sleepTitle.setText(formatSleepTimerText());
-        notifySuiteService();
-    }
-
-    private String formatNightDimmerText() {
-        int level = prefs.getInt(Config.KEY_DIMMER_LEVEL, 0);
-        String state = level <= 0 ? getString(R.string.off) : (level + "%");
-        return getString(R.string.night_dimmer_state, state);
-    }
-
-    private void cycleNightDimmer() {
-        int current = prefs.getInt(Config.KEY_DIMMER_LEVEL, 0);
-        int next = Config.nextNightDimmerLevel(current);
-        prefs.edit().putInt(Config.KEY_DIMMER_LEVEL, next).apply();
-        if (dimmerTitle != null) dimmerTitle.setText(formatNightDimmerText());
         notifySuiteService();
     }
 

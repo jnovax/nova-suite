@@ -38,7 +38,15 @@ final class Config {
     static final String KEY_HIDDEN_OVERRIDE = "hidden_apps_override";
     static final String KEY_REMOTE_OVERRIDE = "remote_keys_override";
     static final String KEY_DIMMER_LEVEL = "night_dimmer_level";
+    static final String KEY_DIMMER_MODE = "night_dimmer_mode";
     static final String KEY_SLEEP_END_MS = "sleep_timer_end_ms";
+
+    static final int DIMMER_MODE_OFF = 0;
+    static final int DIMMER_MODE_SCHEDULED = 1;
+    static final int DIMMER_MODE_ALWAYS_ON = 2;
+    static final int DIMMER_DEFAULT_START_HOUR = 21; // 21:00 (9 PM)
+    static final int DIMMER_DEFAULT_END_HOUR = 6;    // 06:00 (6 AM)
+    static final int DEFAULT_DIMMER_LEVEL = 50;
     private static final String THEME_REVISION_NAME = "theme_revision";
     private static final String THEME_SIGNATURE_KEY = "theme_signature";
 
@@ -411,6 +419,43 @@ final class Config {
         if (currentLevel <= 0) return 25;
         if (currentLevel <= 25) return 50;
         if (currentLevel <= 50) return 70;
+        return 0;
+    }
+
+    /**
+     * Determines whether Night Dimmer should be active given the current mode, schedule, and current hour.
+     * @param mode 0=Off, 1=Scheduled (overnight startHour to endHour), 2=Always On
+     * @param hourOfDay 0-23
+     * @param startHour e.g. 21 (9 PM)
+     * @param endHour e.g. 6 (6 AM)
+     * @return true if dimmer overlay should be active
+     */
+    static boolean isDimmerTime(int mode, int hourOfDay, int startHour, int endHour) {
+        if (mode == DIMMER_MODE_ALWAYS_ON) return true;
+        if (mode != DIMMER_MODE_SCHEDULED) return false;
+        if (startHour > endHour) {
+            // Overnight interval (e.g. 21:00 to 06:00)
+            return hourOfDay >= startHour || hourOfDay < endHour;
+        } else if (startHour < endHour) {
+            // Daytime interval
+            return hourOfDay >= startHour && hourOfDay < endHour;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Resolves the active dimmer opacity level (0, 25, 50, 70) based on user settings and current time.
+     */
+    static int getActiveDimmerAlpha(Context ctx) {
+        android.content.SharedPreferences prefs = ctx.getSharedPreferences(SETTINGS_NAME, Context.MODE_PRIVATE);
+        int mode = prefs.getInt(KEY_DIMMER_MODE, DIMMER_MODE_SCHEDULED);
+        int level = prefs.getInt(KEY_DIMMER_LEVEL, DEFAULT_DIMMER_LEVEL);
+        if (level <= 0) level = DEFAULT_DIMMER_LEVEL;
+        int currentHour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY);
+        if (isDimmerTime(mode, currentHour, DIMMER_DEFAULT_START_HOUR, DIMMER_DEFAULT_END_HOUR)) {
+            return level;
+        }
         return 0;
     }
 
