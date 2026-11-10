@@ -17,8 +17,8 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
-import vn.familytv.parentalcontrol.onboarding.AccessibilityState
-import vn.familytv.parentalcontrol.onboarding.PermissionSnapshot
+import vn.familytv.parentalcontrol.platform.AccessibilityState
+import vn.familytv.parentalcontrol.platform.PermissionSnapshot
 import vn.familytv.parentalcontrol.platform.PermissionReader
 import vn.familytv.parentalcontrol.security.AuthMode
 import vn.familytv.parentalcontrol.security.GeneratedRecoverySet
