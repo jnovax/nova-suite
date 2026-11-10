@@ -1,0 +1,54 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'vn.familytv.parentalcontrol'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "vn.familytv.parentalcontrol"
+        minSdk 28
+        targetSdk 34
+        versionCode 3
+        versionName "1.3.0"
+        resConfigs "en", "vi"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.debug
+        }
+        debug {
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+
+    packaging {
+        resources {
+            excludes += 'kotlin/**'
+            excludes += '**/*.kotlin_builtins'
+            excludes += '**/*.kotlin_metadata'
+            excludes += 'META-INF/*.version'
+        }
+    }
+}
+
+dependencies {
+    implementation project(':core:contract')
+    implementation 'com.google.zxing:core:3.5.3'
+    testImplementation 'junit:junit:4.13.2'
+}

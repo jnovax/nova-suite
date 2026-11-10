@@ -16,6 +16,14 @@ public class ModeStateManager {
 
     public volatile boolean isAuthInProgress = false;
 
+    public boolean isAuthInProgress() {
+        return isAuthInProgress;
+    }
+
+    public void setAuthInProgress(boolean authInProgress) {
+        this.isAuthInProgress = authInProgress;
+    }
+
     public ModeStateManager() {
         this(300);
     }
@@ -109,4 +117,8 @@ public class ModeStateManager {
     }
 
     public static final ModeStateManager instance = new ModeStateManager();
+
+    public static ModeStateManager getInstance() {
+        return instance;
+    }
 }

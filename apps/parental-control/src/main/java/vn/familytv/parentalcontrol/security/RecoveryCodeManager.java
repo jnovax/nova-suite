@@ -48,6 +48,14 @@ public final class RecoveryCodeManager {
         public List<RecoveryCodeRecord> component2() {
             return updatedRecords;
         }
+
+        public boolean isSuccess() {
+            return success;
+        }
+
+        public List<RecoveryCodeRecord> getUpdatedRecords() {
+            return updatedRecords;
+        }
     }
 
     public static VerifyResult verifyAndConsume(

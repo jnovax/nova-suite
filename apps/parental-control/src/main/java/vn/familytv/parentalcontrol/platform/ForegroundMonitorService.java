@@ -373,7 +373,6 @@ public class ForegroundMonitorService extends AccessibilityService {
                     modeManager.setScreenTimeRemainingSec(newRemaining);
                     modeManager.setQuizActive(false);
                     broadcastState();
-                    return kotlin.Unit.INSTANCE;
                 },
                 () -> {
                     audioFocusInterrupter.releaseFocus();
@@ -381,7 +380,6 @@ public class ForegroundMonitorService extends AccessibilityService {
                     Intent intent = new Intent(this, MainActivity.class);
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
                     startActivity(intent);
-                    return kotlin.Unit.INSTANCE;
                 },
                 () -> {
                     currentForegroundPackage = null;
@@ -395,7 +393,6 @@ public class ForegroundMonitorService extends AccessibilityService {
                     homeIntent.addCategory(Intent.CATEGORY_HOME);
                     homeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     startActivity(homeIntent);
-                    return kotlin.Unit.INSTANCE;
                 }
         );
         broadcastState();
