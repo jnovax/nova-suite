@@ -595,7 +595,7 @@ class MainActivity : Activity() {
         for (h in 1..4) {
             val isSelected = (h == weekdayHours)
             val label = if (isSelected) "✓ $h Giờ (Đang chọn)" else "$h Giờ"
-            val btn = views.button(weekdayRow, label, weekdayIds[h - 1], enabled = permissions.ready) {
+            val btn = views.button(weekdayRow, label, weekdayIds[h - 1], permissions.ready) {
                 screenTimeStore.setWeekdayHours(h)
                 Toast.makeText(this, "Đã lưu Thứ 2 - Thứ 6: $h giờ/ngày", Toast.LENGTH_SHORT).show()
                 renderedState = null
@@ -608,8 +608,8 @@ class MainActivity : Activity() {
                     alpha = 0.4f
                 }
             }
-            btn.nextFocusUpId = if (h == 4) R.id.view_timeline_action else R.id.lock_action
-            btn.nextFocusDownId = weekendIds[h - 1]
+            btn.setNextFocusUpId(if (h == 4) R.id.view_timeline_action else R.id.lock_action)
+            btn.setNextFocusDownId(weekendIds[h - 1])
             btn.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 topMargin = 0
                 if (h > 1) marginStart = views.dp(8)
@@ -628,7 +628,7 @@ class MainActivity : Activity() {
         for (h in 1..4) {
             val isSelected = (h == weekendHours)
             val label = if (isSelected) "✓ $h Giờ (Đang chọn)" else "$h Giờ"
-            val btn = views.button(weekendRow, label, weekendIds[h - 1], enabled = permissions.ready) {
+            val btn = views.button(weekendRow, label, weekendIds[h - 1], permissions.ready) {
                 screenTimeStore.setWeekendHours(h)
                 Toast.makeText(this, "Đã lưu Cuối tuần: $h giờ/ngày", Toast.LENGTH_SHORT).show()
                 renderedState = null
@@ -641,8 +641,8 @@ class MainActivity : Activity() {
                     alpha = 0.4f
                 }
             }
-            btn.nextFocusUpId = weekdayIds[h - 1]
-            btn.nextFocusDownId = if (!permissions.ready && h <= 2) R.id.permission_fix_action else R.id.change_pin_action
+            btn.setNextFocusUpId(weekdayIds[h - 1])
+            btn.setNextFocusDownId(if (!permissions.ready && h <= 2) R.id.permission_fix_action else R.id.change_pin_action)
             btn.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 topMargin = 0
                 if (h > 1) marginStart = views.dp(8)
