@@ -91,12 +91,12 @@ public final class ArtCatalog {
                 "Santa Maria delle Grazie, Milan"
         ));
         PIECES.add(new ArtPiece(
-                "birth_of_venus",
-                "birth_of_venus.webp",
-                "The Birth of Venus",
-                "Sandro Botticelli",
-                "1485",
-                "Uffizi Gallery, Florence"
+                "school_of_athens",
+                "school_of_athens.webp",
+                "The School of Athens",
+                "Raphael",
+                "1511",
+                "Apostolic Palace, Vatican City"
         ));
         PIECES.add(new ArtPiece(
                 "the_scream",
