@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # tools/deploy.sh — Selective APK builder and deployer
-# Usage: ./tools/deploy.sh <launcher|parental-control|all> [TARGET_DEV]
+# Usage: ./tools/deploy.sh <launcher|parental-control|flipclock|artmuseum|screensavers|all> [TARGET_DEV]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,26 +22,36 @@ TARGET_DEV="${2:-}"
 
 # Validate target argument before device discovery
 case "$TARGET" in
-    launcher|parental-control|parental|all)
+    launcher|parental-control|parental|flipclock|artmuseum|screensavers|all)
         ;;
     *)
-        echo "Error: Unknown target '$TARGET'. Use: launcher | parental-control | all" >&2
+        echo "Error: Unknown target '$TARGET'. Use: launcher | parental-control | flipclock | artmuseum | screensavers | all" >&2
         exit 1
         ;;
 esac
 
 ADB_CMD="adb"
 IS_WIN_ADB=false
+ADB_EXTRA=()
 
 if [ -n "$TARGET_DEV" ]; then
-    if [[ "$TARGET_DEV" == emulator-* ]] && [ -x "/mnt/d/Android/platform-tools/adb.exe" ]; then
+    if [[ "$TARGET_DEV" == emulator-* || "$TARGET_DEV" == 127.0.0.1:* ]] && [ -x "/mnt/d/Android/platform-tools/adb.exe" ]; then
         ADB_CMD="/mnt/d/Android/platform-tools/adb.exe"
         IS_WIN_ADB=true
+        if /mnt/d/Android/platform-tools/adb.exe -P 5038 devices </dev/null 2>/dev/null | grep -q "$TARGET_DEV"; then
+            ADB_EXTRA=(-P 5038)
+        fi
     fi
 else
     TARGET_DEV=$(adb devices 2>/dev/null | grep -E '\b(device)\b' | awk '{print $1}' | head -n 1 || true)
     if [ -z "$TARGET_DEV" ] && [ -x "/mnt/d/Android/platform-tools/adb.exe" ]; then
-        TARGET_DEV=$(/mnt/d/Android/platform-tools/adb.exe devices 2>/dev/null | grep -E '\b(device)\b' | awk '{print $1}' | head -n 1 || true)
+        TARGET_DEV=$(/mnt/d/Android/platform-tools/adb.exe devices </dev/null 2>/dev/null | grep -E '\b(device)\b' | awk '{print $1}' | head -n 1 || true)
+        if [ -z "$TARGET_DEV" ]; then
+            TARGET_DEV=$(/mnt/d/Android/platform-tools/adb.exe -P 5038 devices </dev/null 2>/dev/null | grep -E '\b(device)\b' | awk '{print $1}' | head -n 1 || true)
+            if [ -n "$TARGET_DEV" ]; then
+                ADB_EXTRA=(-P 5038)
+            fi
+        fi
         if [ -n "$TARGET_DEV" ]; then
             ADB_CMD="/mnt/d/Android/platform-tools/adb.exe"
             IS_WIN_ADB=true
@@ -55,12 +65,12 @@ if [ -z "$TARGET_DEV" ]; then
 fi
 
 echo "=========================================================="
-echo "  🚀 Deploying Target: $TARGET to $TARGET_DEV (via $ADB_CMD)"
+echo "  🚀 Deploying Target: $TARGET to $TARGET_DEV (via $ADB_CMD ${ADB_EXTRA[*]})"
 echo "=========================================================="
 
 adb_exec() {
     if [ "$IS_WIN_ADB" = true ]; then
-        "$ADB_CMD" "$@" </dev/null
+        "$ADB_CMD" ${ADB_EXTRA[@]+"${ADB_EXTRA[@]}"} "$@" </dev/null
     else
         adb "$@"
     fi
@@ -72,9 +82,26 @@ adb_install() {
         mkdir -p /mnt/d/Android/temp
         local fname="$(basename "$apk")"
         cp "$apk" "/mnt/d/Android/temp/$fname"
-        "$ADB_CMD" -s "$TARGET_DEV" install -r "D:\\Android\\temp\\$fname" </dev/null
+        "$ADB_CMD" ${ADB_EXTRA[@]+"${ADB_EXTRA[@]}"} -s "$TARGET_DEV" install -r "D:\\Android\\temp\\$fname" </dev/null
     else
         adb -s "$TARGET_DEV" install -r "$apk"
+    fi
+}
+
+sync_time() {
+    local host_s dev_s
+    host_s=$(date +%s)
+    dev_s=$(adb_exec -s "$TARGET_DEV" shell date +%s 2>/dev/null || echo 0)
+    dev_s=$(echo "$dev_s" | tr -d '\r\n')
+    if [[ "$dev_s" =~ ^[0-9]+$ ]] && [ "$dev_s" -gt 0 ]; then
+        local diff=$(( host_s - dev_s ))
+        diff=${diff#-}
+        if [ "$diff" -gt 60 ]; then
+            echo "==> Syncing device clock with host ($diff seconds drift)..."
+            local now_ms
+            now_ms=$(python3 -c 'import time; print(int(time.time() * 1000))' 2>/dev/null || echo "${host_s}000")
+            adb_exec -s "$TARGET_DEV" shell cmd alarm set-time "$now_ms" 2>/dev/null || true
+        fi
     fi
 }
 
@@ -113,6 +140,38 @@ deploy_parental() {
     adb_install "$apk"
 }
 
+deploy_flipclock() {
+    echo "==> Building Screensaver FlipClock APK..."
+    (cd "$ROOT_DIR" && ./gradlew :apps:screensaver-flipclock:assembleRelease)
+    local apk=""
+    if [ -d "$ROOT_DIR/apps/screensaver-flipclock/build/outputs/apk/release" ]; then
+        apk=$(find "$ROOT_DIR/apps/screensaver-flipclock/build/outputs/apk/release" -name "*.apk" 2>/dev/null | head -n 1 || true)
+    fi
+    if [ -z "$apk" ] || [ ! -f "$apk" ]; then
+        echo "Error: FlipClock APK not found" >&2
+        exit 1
+    fi
+    echo "==> Installing FlipClock Screensaver to $TARGET_DEV..."
+    adb_install "$apk"
+}
+
+deploy_artmuseum() {
+    echo "==> Building Screensaver Art Museum APK..."
+    (cd "$ROOT_DIR" && ./gradlew :apps:screensaver-artmuseum:assembleRelease)
+    local apk=""
+    if [ -d "$ROOT_DIR/apps/screensaver-artmuseum/build/outputs/apk/release" ]; then
+        apk=$(find "$ROOT_DIR/apps/screensaver-artmuseum/build/outputs/apk/release" -name "*.apk" 2>/dev/null | head -n 1 || true)
+    fi
+    if [ -z "$apk" ] || [ ! -f "$apk" ]; then
+        echo "Error: Art Museum APK not found" >&2
+        exit 1
+    fi
+    echo "==> Installing Art Museum Screensaver to $TARGET_DEV..."
+    adb_install "$apk"
+}
+
+sync_time
+
 case "$TARGET" in
     launcher)
         deploy_launcher
@@ -120,8 +179,20 @@ case "$TARGET" in
     parental-control|parental)
         deploy_parental
         ;;
+    flipclock)
+        deploy_flipclock
+        ;;
+    artmuseum)
+        deploy_artmuseum
+        ;;
+    screensavers)
+        deploy_flipclock
+        deploy_artmuseum
+        ;;
     all)
         deploy_parental
+        deploy_flipclock
+        deploy_artmuseum
         deploy_launcher
         ;;
 esac

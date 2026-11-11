@@ -4,6 +4,32 @@ All notable changes to the `nova-tv-launcher` ecosystem (`apps/launcher`, `apps/
 
 ---
 
+## [v1.3.0] — 2026-11-11
+### 🎨 Modular Screensaver Ecosystem & Dynamic Android TV Dream Discovery
+
+#### Added
+- **Dynamic Android Screensaver Discovery (`ScreensaverDiscovery.java` in `apps/launcher`):**
+  - Launcher dynamically queries `PackageManager` for all installed `DreamService` components (`android.service.dreams.DreamService`).
+  - Automatically lists available screensavers with their app icons and labels in `LauncherSettingsActivity` (Tab: *Display & ScreenSaver*).
+  - Preserves ultra-lightweight launcher target size (~312 KB release APK).
+- **Dual Activation Engine (`ScreensaverDiscovery`, `ScreensaverPreferences`):**
+  - **In-Launcher Instant Launch (<16ms)**: Direct intent launch to exported activity on In-Launcher Idle Watchdog or Quick Settings / Remote Key trigger.
+  - **System Dream Synchronization**: Synchronizes user selection to `Settings.Secure.screensaver_components` via `WRITE_SECURE_SETTINGS` so the screensaver also triggers during Android TV OS global sleep.
+  - **Graceful Fallback**: Automatically falls back to built-in 4K Wallpapers if an external screensaver is uninstalled.
+- **Standalone Module: `apps/screensaver-flipclock` (`com.appletv.screensaver.flipclock`, ~19 KB):**
+  - Pure Java 17 retro mechanical split-flap clock (Fliqlo style) drawn via hardware-accelerated Canvas 3D Camera projections.
+  - Automatic 12h/24h format support with AM/PM indicator.
+  - True OLED black background with periodic micro-drift to prevent OLED burn-in.
+  - Instant wakeup (<16ms) upon any remote key press.
+- **Standalone Module: `apps/screensaver-artmuseum` (`com.appletv.screensaver.artmuseum`, ~136 KB):**
+  - 100% offline curated gallery of 12 classical masterpieces (Van Gogh, Monet, Da Vinci, Vermeer, Hokusai, Klimt...).
+  - Cinematic Ken Burns slow pan/zoom with 1.5s dual-view crossfade between artworks.
+  - tvOS frosted glass Museum Card overlay showing artwork title, artist, year, and museum, auto-fading after 6 seconds.
+- **Multi-Module Deployment Tooling (`tools/deploy.sh`):**
+  - Added deployment targets: `./tools/deploy.sh <launcher|parental-control|flipclock|artmuseum|screensavers|all> [TV_IP]`.
+
+---
+
 ## [v1.2.0] — 2026-11-09
 ### ✨ Zero-Bloat Practical TV Suite & Refined tvOS Dock Geometry (`versionCode 6`)
 

@@ -28,8 +28,10 @@ Transform any connected Android TV or Google TV (Sony, TCL, Xiaomi, OnePlus, His
 ```
 nova-tv-launcher/
 ├── apps/
-│   ├── launcher/              # ID: com.appletv.launcher (tvOS 18 Home Launcher, v1.2.0)
-│   └── parental-control/      # ID: vn.familytv.parentalcontrol (FamilyTime Parental Control, v1.2.0)
+│   ├── launcher/              # ID: com.appletv.launcher (tvOS 18 Home Launcher, ~298 KB)
+│   ├── parental-control/      # ID: vn.familytv.parentalcontrol (FamilyTime Parental Control, ~144 KB)
+│   ├── screensaver-flipclock/ # ID: com.appletv.screensaver.flipclock (Fliqlo Split-Flap Clock, ~19 KB)
+│   └── screensaver-artmuseum/ # ID: com.appletv.screensaver.artmuseum (Classical Art Gallery, ~136 KB)
 ├── core/
 │   └── contract/              # Shared IPC Contract (ModeContract, StatusProviderContract, TimeFormatter)
 ├── tools/                     # Unified ADB audit, deploy, backup, restore, and 4K wallpaper tools
@@ -42,8 +44,8 @@ nova-tv-launcher/
 
 ### A. Selective Build & Deployment (For Development / Updates)
 ```bash
-# Deploy only Launcher, only Parental Control, or both (all) to TV
-./tools/deploy.sh <launcher|parental-control|all> [TV_IP]
+# Deploy individual components, screensavers, or entire ecosystem to TV
+./tools/deploy.sh <launcher|parental-control|flipclock|artmuseum|screensavers|all> [TV_IP]
 ```
 
 ### B. Full TV Setup & Debloat Workflow (Audit First)
@@ -61,13 +63,9 @@ bash reports/apply_<ts>.sh
 
 *(Optional 1-Click Interactive Mode: `./tools/setup.sh <TV_IP>`)*
 
-### C. Simulation & Web Preview Workflow
+### C. Simulation & Emulator Workflow
 ```bash
-# 1. Interactive Web Simulation (tvOS 18 Home + FamilyTime + Remote D-pad):
-python3 -m http.server 8888 --directory docs/preview
-# Access via browser at http://localhost:8888/
-
-# 2. Android TV Emulator / Local AVD:
+# Android TV Emulator / Local AVD:
 ./tools/deploy.sh all [EMULATOR_DEVICE_ID]
 ```
 👉 *See [`docs/SIMULATION.md`](docs/SIMULATION.md) for full emulator, ADB testing, and simulation documentation.*
