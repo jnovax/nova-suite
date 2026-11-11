@@ -15,11 +15,13 @@ import android.graphics.Outline;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
 import android.view.animation.DecelerateInterpolator;
@@ -351,10 +353,14 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             h.label.setText(e.label);
             h.label.setVisibility(View.VISIBLE);
         }
-        h.card.setOnClickListener(v -> launch(e));
+        h.card.setOnClickListener(v -> {
+            if (SystemClock.uptimeMillis() - h.lastLongPressTime[0] < 1200) return;
+            launch(e);
+        });
         h.card.setOnLongClickListener(v -> {
             int pos = h.getBindingAdapterPosition();
             if (listener != null && pos != RecyclerView.NO_POSITION) {
+                h.lastLongPressTime[0] = SystemClock.uptimeMillis();
                 listener.onTileLongPressed(pos, v);
             }
             return true;
@@ -362,7 +368,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     }
 
     /** Opens the tile's activity by explicit component, with no extras: a card can name nothing else. */
-    private void launch(Entry e) {
+    void launch(Entry e) {
         if (e.kind == Entry.HOME_SETTINGS) {
             ctx.startActivity(new Intent(ctx, HomeSettingsActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
@@ -434,9 +440,12 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
     List<String> currentDockPackages() {
         List<String> out = new ArrayList<>();
-        for (int i = 0; i < docked && i < items.size(); i++) {
+        int limit = Math.min(dockSize, items.size());
+        for (int i = 0; i < limit; i++) {
             Entry e = items.get(i);
-            if (e.kind != Entry.EMPTY) out.add(e.pkg);
+            if (e.kind != Entry.EMPTY && e.kind != Entry.HOME_SETTINGS && e.pkg != null) {
+                out.add(e.pkg);
+            }
         }
         return out;
     }
@@ -510,6 +519,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         final boolean animations;
         final boolean advancedEffects;
         final boolean reducedMotion;
+        final long[] lastLongPressTime = {0};
 
         Holder(View v, AppAdapter adapter, TileListener listener, boolean animations, boolean advancedEffects,
                boolean reducedMotion) {
@@ -535,15 +545,57 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             });
             card.setClipToOutline(true);
 
+            final Runnable[] longPressRunnable = {null};
+            final boolean[] longPressed = {false};
+
             card.setOnKeyListener((view, keyCode, event) -> {
+                int pos = getBindingAdapterPosition();
+                if (pos == RecyclerView.NO_POSITION) return false;
+
+                if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER
+                        || keyCode == KeyEvent.KEYCODE_ENTER
+                        || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+                    if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                        if (event.getRepeatCount() == 0) {
+                            longPressed[0] = false;
+                            if (longPressRunnable[0] != null) view.removeCallbacks(longPressRunnable[0]);
+                            longPressRunnable[0] = () -> {
+                                longPressed[0] = true;
+                                lastLongPressTime[0] = SystemClock.uptimeMillis();
+                                if (listener != null) {
+                                    listener.onTileLongPressed(pos, view);
+                                }
+                            };
+                            view.postDelayed(longPressRunnable[0], ViewConfiguration.getLongPressTimeout());
+                        }
+                        return true;
+                    } else if (event.getAction() == KeyEvent.ACTION_UP) {
+                        if (longPressRunnable[0] != null) {
+                            view.removeCallbacks(longPressRunnable[0]);
+                            longPressRunnable[0] = null;
+                        }
+                        boolean wasLongPress = longPressed[0] || (SystemClock.uptimeMillis() - lastLongPressTime[0] < 1200);
+                        longPressed[0] = false;
+                        if (wasLongPress) {
+                            return true;
+                        }
+                        Entry entry = adapter.entryAt(pos);
+                        if (entry != null) adapter.launch(entry);
+                        return true;
+                    }
+                }
+
                 if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
                 if (keyCode != KeyEvent.KEYCODE_DPAD_UP && keyCode != KeyEvent.KEYCODE_DPAD_DOWN
                         && keyCode != KeyEvent.KEYCODE_DPAD_LEFT && keyCode != KeyEvent.KEYCODE_DPAD_RIGHT) return false;
-                int pos = getBindingAdapterPosition();
-                return listener != null && pos != RecyclerView.NO_POSITION && listener.onTileVerticalKey(pos, keyCode);
+                return listener != null && listener.onTileVerticalKey(pos, keyCode);
             });
 
             card.setOnFocusChangeListener((view, focused) -> {
+                if (!focused && longPressRunnable[0] != null) {
+                    view.removeCallbacks(longPressRunnable[0]);
+                    longPressRunnable[0] = null;
+                }
                 view.animate().cancel();
                 name.animate().cancel();
                 float scale = !animations ? 1f : FOCUS_SCALE;

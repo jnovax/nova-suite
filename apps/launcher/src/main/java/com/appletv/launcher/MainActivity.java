@@ -1928,7 +1928,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // The OK-up after opening the menu must not activate its first row.
         final boolean[] pressed = {false};
         row.setOnKeyListener((v, code, event) -> {
-            if (code != KeyEvent.KEYCODE_DPAD_CENTER && code != KeyEvent.KEYCODE_ENTER) return false;
+            if (code != KeyEvent.KEYCODE_DPAD_CENTER && code != KeyEvent.KEYCODE_ENTER && code != KeyEvent.KEYCODE_NUMPAD_ENTER) return false;
             if (event.getAction() == KeyEvent.ACTION_DOWN) {
                 if (event.getRepeatCount() == 0) pressed[0] = true;
                 return true;
@@ -1951,8 +1951,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (entry == null || entry.kind == AppAdapter.Entry.EMPTY || entry.kind == AppAdapter.Entry.HOME_SETTINGS) return;
 
         View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
+        TextView titleView = panel.findViewById(R.id.title);
+        if (titleView != null) titleView.setText(entry.label);
         LinearLayout rows = panel.findViewById(R.id.rows);
-        PopupWindow popup = glassPopup(panel, (int) (210 * density));
+        PopupWindow popup = glassPopup(panel, (int) (220 * density));
 
         List<String> dockPkgs = adapter.currentDockPackages();
         int dockIdx = dockPkgs.indexOf(entry.pkg);
@@ -1997,9 +1999,52 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             open(i);
         });
 
-        panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
-        popup.setWidth(Math.max((int) (210 * density), panel.getMeasuredWidth()));
-        dropIn(popup, panel, card, Gravity.START);
+        int rootW = root.getWidth() > 0 ? root.getWidth() : getResources().getDisplayMetrics().widthPixels;
+        int rootH = root.getHeight() > 0 ? root.getHeight() : getResources().getDisplayMetrics().heightPixels;
+
+        panel.measure(View.MeasureSpec.makeMeasureSpec(rootW, View.MeasureSpec.AT_MOST),
+                      View.MeasureSpec.makeMeasureSpec(rootH, View.MeasureSpec.AT_MOST));
+        int menuWidth = Math.max((int) (220 * density), panel.getMeasuredWidth());
+        int menuHeight = panel.getMeasuredHeight();
+        popup.setWidth(menuWidth);
+        popup.setHeight(ViewGroup.LayoutParams.WRAP_CONTENT);
+
+        popup.setOnDismissListener(() -> {
+            lastPopupDismissTime = android.os.SystemClock.uptimeMillis();
+            if (openPopup == popup) openPopup = null;
+            card.requestFocus();
+        });
+
+        int[] cardLoc = new int[2];
+        card.getLocationInWindow(cardLoc);
+        int cardX = cardLoc[0];
+        int cardY = cardLoc[1];
+        int cardH = card.getHeight();
+        int cardW = card.getWidth();
+
+        int margin = (int) (20 * density);
+        int x = cardX + (cardW - menuWidth) / 2;
+        if (x < margin) x = margin;
+        if (x + menuWidth > rootW - margin) {
+            x = rootW - margin - menuWidth;
+        }
+
+        int spaceBelow = rootH - (cardY + cardH);
+        int y;
+        boolean showAbove = spaceBelow < menuHeight + (int) (24 * density);
+        if (showAbove) {
+            y = cardY - menuHeight - (int) (12 * density);
+        } else {
+            y = cardY + cardH + (int) (12 * density);
+        }
+        if (y < margin) y = margin;
+
+        panel.setAlpha(0f);
+        panel.setTranslationY(showAbove ? 12 * density : -12 * density);
+        popup.showAtLocation(root, Gravity.NO_GRAVITY, x, y);
+        panel.animate().alpha(1f).translationY(0f).setDuration(200)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
+
         if (rows.getChildCount() > 0) rows.getChildAt(0).requestFocus();
     }
 
