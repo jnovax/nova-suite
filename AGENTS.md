@@ -30,8 +30,7 @@ nova-tv-launcher/
 ├── apps/
 │   ├── launcher/              # ID: com.appletv.launcher (tvOS 18 Home Launcher, ~298 KB)
 │   ├── parental-control/      # ID: vn.familytv.parentalcontrol (FamilyTime Parental Control, ~144 KB)
-│   ├── screensaver-flipclock/ # ID: com.appletv.screensaver.flipclock (Fliqlo Split-Flap Clock, ~19 KB)
-│   └── screensaver-artmuseum/ # ID: com.appletv.screensaver.artmuseum (Classical Art Gallery, ~136 KB)
+│   └── screensaver-flipclock/ # ID: com.appletv.screensaver.flipclock (Fliqlo Split-Flap Clock, ~19 KB)
 ├── core/
 │   └── contract/              # Shared IPC Contract (ModeContract, StatusProviderContract, TimeFormatter)
 ├── tools/                     # Unified ADB audit, deploy, backup, restore, and 4K wallpaper tools
@@ -45,7 +44,7 @@ nova-tv-launcher/
 ### A. Selective Build & Deployment (For Development / Updates)
 ```bash
 # Deploy individual components, screensavers, or entire ecosystem to TV
-./tools/deploy.sh <launcher|parental-control|flipclock|artmuseum|screensavers|all> [TV_IP]
+./tools/deploy.sh <launcher|parental-control|flipclock|screensavers|all> [TV_IP]
 ```
 
 ### B. Full TV Setup & Debloat Workflow (Audit First)

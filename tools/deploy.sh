@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # tools/deploy.sh — Selective APK builder and deployer
-# Usage: ./tools/deploy.sh <launcher|parental-control|flipclock|artmuseum|screensavers|all> [TARGET_DEV]
+# Usage: ./tools/deploy.sh <launcher|parental-control|flipclock|screensavers|all> [TARGET_DEV]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -17,24 +17,89 @@ if [ -n "${JAVA_HOME:-}" ] || [ -n "${ANDROID_HOME:-}" ]; then
     export PATH="${JAVA_HOME:-/usr}/bin:${ANDROID_HOME:-/opt/android-sdk}/platform-tools:${ANDROID_HOME:-/opt/android-sdk}/cmdline-tools/latest/bin:$PATH"
 fi
 
-TARGET="${1:-all}"
-TARGET_DEV="${2:-}"
+is_target() {
+    case "$1" in
+        launcher|parental-control|parental|flipclock|screensavers|all)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
 
-# Validate target argument before device discovery
-case "$TARGET" in
-    launcher|parental-control|parental|flipclock|artmuseum|screensavers|all)
-        ;;
-    *)
-        echo "Error: Unknown target '$TARGET'. Use: launcher | parental-control | flipclock | artmuseum | screensavers | all" >&2
-        exit 1
-        ;;
-esac
+ARG1="${1:-}"
+ARG2="${2:-}"
+
+TARGET="all"
+TARGET_DEV=""
+
+if [ -n "$ARG1" ]; then
+    if is_target "$ARG1"; then
+        TARGET="$ARG1"
+        TARGET_DEV="$ARG2"
+    else
+        # ARG1 is likely device ID or IP
+        TARGET_DEV="$ARG1"
+        if [ -n "$ARG2" ]; then
+            if is_target "$ARG2"; then
+                TARGET="$ARG2"
+            else
+                echo "Error: Unknown target '$ARG2'. Use: launcher | parental-control | flipclock | screensavers | all" >&2
+                exit 1
+            fi
+        fi
+    fi
+fi
+
+# Fallback to environment variables if TARGET_DEV not specified
+TARGET_DEV="${TARGET_DEV:-${TV_HOST:-${TV_IP:-}}}"
 
 ADB_CMD="adb"
 IS_WIN_ADB=false
 ADB_EXTRA=()
 
+is_port_reachable() {
+    local host="$1"
+    local port="$2"
+    if command -v nc >/dev/null 2>&1; then
+        nc -z -w 1 "$host" "$port" >/dev/null 2>&1
+        return $?
+    fi
+    if command -v ping >/dev/null 2>&1; then
+        ping -c 1 -W 1 "$host" >/dev/null 2>&1
+        return $?
+    fi
+    return 0
+}
+
+safe_adb_connect() {
+    local target="$1"
+    local host="${target%:*}"
+    local port="${target#*:}"
+    [ "$port" = "$host" ] && port="5555"
+
+    if ! is_port_reachable "$host" "$port"; then
+        return 1
+    fi
+
+    if command -v timeout >/dev/null 2>&1; then
+        timeout 5 adb connect "$target" >/dev/null 2>&1 || true
+    else
+        adb connect "$target" >/dev/null 2>&1 || true
+    fi
+}
+
+# If TARGET_DEV was explicitly specified, normalize and connect if network device
 if [ -n "$TARGET_DEV" ]; then
+    if [[ "$TARGET_DEV" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        TARGET_DEV="${TARGET_DEV}:5555"
+    fi
+    if [[ "$TARGET_DEV" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+$ ]]; then
+        echo "==> Connecting to $TARGET_DEV..."
+        safe_adb_connect "$TARGET_DEV" || true
+    fi
+
     if [[ "$TARGET_DEV" == emulator-* || "$TARGET_DEV" == 127.0.0.1:* ]] && [ -x "/mnt/d/Android/platform-tools/adb.exe" ]; then
         ADB_CMD="/mnt/d/Android/platform-tools/adb.exe"
         IS_WIN_ADB=true
@@ -43,7 +108,11 @@ if [ -n "$TARGET_DEV" ]; then
         fi
     fi
 else
+    # Auto-discovery:
+    # 1. Check already connected devices in adb
     TARGET_DEV=$(adb devices 2>/dev/null | grep -E '\b(device)\b' | awk '{print $1}' | head -n 1 || true)
+
+    # 2. Check Windows adb for WSL emulators
     if [ -z "$TARGET_DEV" ] && [ -x "/mnt/d/Android/platform-tools/adb.exe" ]; then
         TARGET_DEV=$(/mnt/d/Android/platform-tools/adb.exe devices </dev/null 2>/dev/null | grep -E '\b(device)\b' | awk '{print $1}' | head -n 1 || true)
         if [ -z "$TARGET_DEV" ]; then
@@ -57,16 +126,49 @@ else
             IS_WIN_ADB=true
         fi
     fi
+
+    # 3. Check mDNS discovery
+    if [ -z "$TARGET_DEV" ]; then
+        MDNS_DEV=$(adb mdns services 2>/dev/null | grep -E '_adb\._tcp|_adb-tls-connect\._tcp' | head -n 1 | awk '{print $NF}' || true)
+        if [ -n "$MDNS_DEV" ]; then
+            echo "==> Auto-discovered Android TV via mDNS: $MDNS_DEV. Connecting..."
+            safe_adb_connect "$MDNS_DEV" || true
+            if [ "$(adb -s "$MDNS_DEV" get-state 2>/dev/null || true)" = "device" ]; then
+                TARGET_DEV="$MDNS_DEV"
+            fi
+        fi
+    fi
+
+    # 4. Probe known default TV targets
+    if [ -z "$TARGET_DEV" ]; then
+        DEFAULT_TARGETS=("192.168.1.7:5555" "192.168.1.10:5555")
+        for cand in "${DEFAULT_TARGETS[@]}"; do
+            if safe_adb_connect "$cand"; then
+                echo "==> Found reachable TV target at $cand. Connected."
+                if [ "$(adb -s "$cand" get-state 2>/dev/null || true)" = "device" ]; then
+                    TARGET_DEV="$cand"
+                    break
+                fi
+            fi
+        done
+    fi
 fi
 
 if [ -z "$TARGET_DEV" ]; then
-    echo "Error: No ADB device connected." >&2
+    echo "❌ Error: Could not detect or connect to any Android TV device." >&2
+    echo "" >&2
+    echo "Probed addresses:" >&2
+    echo "  - 192.168.1.7:5555 (default primary TV)" >&2
+    echo "  - 192.168.1.10:5555 (secondary TV)" >&2
+    echo "  - mDNS discovery" >&2
+    echo "" >&2
+    echo "Troubleshooting:" >&2
+    echo "  1. Make sure the TV is turned ON and connected to Wi-Fi / LAN." >&2
+    echo "  2. Check TV IP address: Settings ⚙️ -> Network & Internet -> Connected Wi-Fi -> IP address." >&2
+    echo "  3. Ensure USB Debugging is ON in TV Developer Options." >&2
+    echo "  4. Pass the TV IP directly: ./tools/deploy.sh $TARGET <TV_IP>" >&2
     exit 1
 fi
-
-echo "=========================================================="
-echo "  🚀 Deploying Target: $TARGET to $TARGET_DEV (via $ADB_CMD ${ADB_EXTRA[*]})"
-echo "=========================================================="
 
 adb_exec() {
     if [ "$IS_WIN_ADB" = true ]; then
@@ -76,16 +178,62 @@ adb_exec() {
     fi
 }
 
+DEV_STATE=$(adb_exec -s "$TARGET_DEV" get-state 2>/dev/null || true)
+if [ "$DEV_STATE" != "device" ]; then
+    echo "❌ Error: Device $TARGET_DEV is not in 'device' state (currently: '${DEV_STATE:-disconnected}')." >&2
+    if [ "$DEV_STATE" = "unauthorized" ]; then
+        echo "Tip: Please look at your TV screen and accept the 'Allow USB debugging' prompt." >&2
+    else
+        echo "Tip: Ensure the TV is on and connected to the same network, then retry." >&2
+    fi
+    exit 1
+fi
+
+echo "=========================================================="
+echo "  🚀 Deploying Target: $TARGET to $TARGET_DEV (via $ADB_CMD ${ADB_EXTRA[*]})"
+echo "=========================================================="
+
 adb_install() {
     local apk="$1"
+    local install_cmd
     if [ "$IS_WIN_ADB" = true ]; then
         mkdir -p /mnt/d/Android/temp
         local fname="$(basename "$apk")"
         cp "$apk" "/mnt/d/Android/temp/$fname"
-        "$ADB_CMD" ${ADB_EXTRA[@]+"${ADB_EXTRA[@]}"} -s "$TARGET_DEV" install -r "D:\\Android\\temp\\$fname" </dev/null
+        install_cmd=("$ADB_CMD" ${ADB_EXTRA[@]+"${ADB_EXTRA[@]}"} -s "$TARGET_DEV" install -r "D:\\Android\\temp\\$fname")
     else
-        adb -s "$TARGET_DEV" install -r "$apk"
+        install_cmd=(adb -s "$TARGET_DEV" install -r "$apk")
     fi
+
+    local out
+    if ! out=$("${install_cmd[@]}" 2>&1); then
+        echo "$out" >&2
+        if echo "$out" | grep -q "INSTALL_FAILED_UPDATE_INCOMPATIBLE"; then
+            echo "⚠️ Signature mismatch detected for $(basename "$apk"). Existing app was signed with a different key." >&2
+            local pkg=""
+            local aapt_bin="${ANDROID_HOME:-/opt/android-sdk}/build-tools/34.0.0/aapt"
+            if [ -x "$aapt_bin" ]; then
+                pkg=$("$aapt_bin" dump badging "$apk" 2>/dev/null | grep -E "^package: name=" | sed -E "s/.*name='([^']+)'.*/\1/" || true)
+            elif command -v aapt >/dev/null 2>&1; then
+                pkg=$(aapt dump badging "$apk" 2>/dev/null | grep -E "^package: name=" | sed -E "s/.*name='([^']+)'.*/\1/" || true)
+            fi
+            if [ -n "$pkg" ]; then
+                echo "==> Performing clean reinstall of $pkg (preserving accessibility settings)..."
+                local old_acc
+                old_acc=$(adb_exec -s "$TARGET_DEV" shell settings get secure enabled_accessibility_services 2>/dev/null | tr -d '\r' || true)
+                adb_exec -s "$TARGET_DEV" uninstall "$pkg" || true
+                "${install_cmd[@]}"
+                if [ -n "$old_acc" ] && [ "$old_acc" != "null" ]; then
+                    adb_exec -s "$TARGET_DEV" shell settings put secure enabled_accessibility_services "$old_acc" 2>/dev/null || true
+                    adb_exec -s "$TARGET_DEV" shell settings put secure accessibility_enabled 1 2>/dev/null || true
+                fi
+                echo "✅ Successfully reinstalled $pkg"
+                return 0
+            fi
+        fi
+        return 1
+    fi
+    echo "$out"
 }
 
 sync_time() {
@@ -155,21 +303,6 @@ deploy_flipclock() {
     adb_install "$apk"
 }
 
-deploy_artmuseum() {
-    echo "==> Building Screensaver Art Museum APK..."
-    (cd "$ROOT_DIR" && ./gradlew :apps:screensaver-artmuseum:assembleRelease)
-    local apk=""
-    if [ -d "$ROOT_DIR/apps/screensaver-artmuseum/build/outputs/apk/release" ]; then
-        apk=$(find "$ROOT_DIR/apps/screensaver-artmuseum/build/outputs/apk/release" -name "*.apk" 2>/dev/null | head -n 1 || true)
-    fi
-    if [ -z "$apk" ] || [ ! -f "$apk" ]; then
-        echo "Error: Art Museum APK not found" >&2
-        exit 1
-    fi
-    echo "==> Installing Art Museum Screensaver to $TARGET_DEV..."
-    adb_install "$apk"
-}
-
 sync_time
 
 case "$TARGET" in
@@ -182,17 +315,12 @@ case "$TARGET" in
     flipclock)
         deploy_flipclock
         ;;
-    artmuseum)
-        deploy_artmuseum
-        ;;
     screensavers)
         deploy_flipclock
-        deploy_artmuseum
         ;;
     all)
         deploy_parental
         deploy_flipclock
-        deploy_artmuseum
         deploy_launcher
         ;;
 esac
