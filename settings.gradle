@@ -18,3 +18,5 @@ include ':apps:launcher'
 include ':apps:parental-control'
 include ':apps:screensaver-flipclock'
 include ':core:contract'
+
+include ':apps:screensaver-landscape'

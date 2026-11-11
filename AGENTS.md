@@ -30,7 +30,8 @@ nova-tv-launcher/
 ├── apps/
 │   ├── launcher/              # ID: com.appletv.launcher (tvOS 18 Home Launcher, ~298 KB)
 │   ├── parental-control/      # ID: vn.familytv.parentalcontrol (FamilyTime Parental Control, ~144 KB)
-│   └── screensaver-flipclock/ # ID: com.appletv.screensaver.flipclock (Fliqlo Split-Flap Clock, ~19 KB)
+│   ├── screensaver-flipclock/ # ID: com.appletv.screensaver.flipclock (Fliqlo Split-Flap Clock, ~19 KB)
+│   └── screensaver-landscape/ # ID: com.appletv.screensaver.landscape (Landscape Art)
 ├── core/
 │   └── contract/              # Shared IPC Contract (ModeContract, StatusProviderContract, TimeFormatter)
 ├── tools/                     # Unified ADB audit, deploy, backup, restore, and 4K wallpaper tools

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # tools/deploy.sh — Selective APK builder and deployer
-# Usage: ./tools/deploy.sh <launcher|parental-control|flipclock|screensavers|all> [TARGET_DEV]
+# Usage: ./tools/deploy.sh <launcher|parental-control|flipclock|landscape|screensavers|all> [TARGET_DEV]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -19,7 +19,7 @@ fi
 
 is_target() {
     case "$1" in
-        launcher|parental-control|parental|flipclock|screensavers|all)
+        launcher|parental-control|parental|flipclock|landscape|screensavers|all)
             return 0
             ;;
         *)
@@ -45,7 +45,7 @@ if [ -n "$ARG1" ]; then
             if is_target "$ARG2"; then
                 TARGET="$ARG2"
             else
-                echo "Error: Unknown target '$ARG2'. Use: launcher | parental-control | flipclock | screensavers | all" >&2
+                echo "Error: Unknown target '$ARG2'. Use: launcher | parental-control | flipclock | landscape | screensavers | all" >&2
                 exit 1
             fi
         fi
@@ -303,6 +303,22 @@ deploy_flipclock() {
     adb_install "$apk"
 }
 
+deploy_landscape() {
+    echo "==> Building Screensaver Landscape APK..."
+    (cd "$ROOT_DIR" && ./gradlew :apps:screensaver-landscape:assembleRelease)
+    local apk=""
+    if [ -d "$ROOT_DIR/apps/screensaver-landscape/build/outputs/apk/release" ]; then
+        apk=$(find "$ROOT_DIR/apps/screensaver-landscape/build/outputs/apk/release" -name "*.apk" 2>/dev/null | head -n 1 || true)
+    fi
+    if [ -z "$apk" ] || [ ! -f "$apk" ]; then
+        echo "Error: Landscape Screensaver APK not found" >&2
+        exit 1
+    fi
+    echo "==> Installing Landscape Screensaver to $TARGET_DEV..."
+    adb_install "$apk"
+}
+
+
 sync_time
 
 case "$TARGET" in
@@ -315,12 +331,17 @@ case "$TARGET" in
     flipclock)
         deploy_flipclock
         ;;
+    landscape)
+        deploy_landscape
+        ;;
     screensavers)
         deploy_flipclock
+        deploy_landscape
         ;;
     all)
         deploy_parental
         deploy_flipclock
+        deploy_landscape
         deploy_launcher
         ;;
 esac
