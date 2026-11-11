@@ -1,0 +1,16 @@
+// Both applications must use the same certificate for signature-protected IPC.
+// Preserve the existing launcher key so installed launcher APKs remain updatable.
+android {
+    signingConfigs {
+        unified {
+            storeFile rootProject.file('apps/launcher/debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+    buildTypes {
+        debug { signingConfig signingConfigs.unified }
+        release { signingConfig signingConfigs.unified }
+    }
+}

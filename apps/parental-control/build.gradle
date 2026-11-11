@@ -25,10 +25,6 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.debug
-        }
-        debug {
-            signingConfig signingConfigs.debug
         }
     }
 
@@ -46,6 +42,8 @@ android {
         }
     }
 }
+
+apply from: rootProject.file('gradle/unified-signing.gradle')
 
 dependencies {
     implementation project(':core:contract')

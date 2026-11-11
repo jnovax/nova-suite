@@ -11,6 +11,7 @@ import android.graphics.BitmapFactory;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.animation.LinearInterpolator;
 import android.widget.FrameLayout;
@@ -68,7 +69,9 @@ public class ArtMuseumView extends FrameLayout {
         try {
             SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
             lastShownIndex = prefs.getInt(KEY_LAST_INDEX, -1);
-        } catch (Exception ignored) {
+            Log.i("ArtMuseumView", "init: loaded lastShownIndex=" + lastShownIndex);
+        } catch (Exception e) {
+            Log.w("ArtMuseumView", "Failed to read prefs", e);
         }
 
         currentView = new ImageView(context);
@@ -93,6 +96,7 @@ public class ArtMuseumView extends FrameLayout {
         playlist.clear();
         playlist.addAll(ArtCatalog.createShuffledIndices(random, lastShownIndex));
         playlistPosition = 0;
+        Log.i("ArtMuseumView", "initPlaylist: lastShownIndex=" + lastShownIndex + ", playlist=" + playlist);
     }
 
     public void start() {
@@ -142,6 +146,9 @@ public class ArtMuseumView extends FrameLayout {
         final int index = playlist.get(playlistPosition++);
         lastShownIndex = index;
 
+        final ArtPiece piece = ArtCatalog.getPiece(index);
+        Log.i("ArtMuseumView", "loadAndTransitionNext: index=" + index + ", title=" + (piece != null ? piece.title : "null"));
+
         try {
             getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                     .edit()
@@ -149,8 +156,6 @@ public class ArtMuseumView extends FrameLayout {
                     .apply();
         } catch (Exception ignored) {
         }
-
-        final ArtPiece piece = ArtCatalog.getPiece(index);
         if (piece == null) return;
 
         executor.execute(() -> {

@@ -4,40 +4,7 @@ Tài liệu này chuẩn hóa toàn bộ quy trình và lệnh chạy cho môi t
 
 ---
 
-## 1. Web Simulation tương tác (`docs/preview/index.html`)
-
-Dự án cung cấp một bản mô phỏng trực quan chuẩn tvOS 18 chạy hoàn toàn trên nền Web (HTML5/CSS3/Vanilla JS) với độ phân giải mô phỏng 4K UHD (`3840x2160` / `1920x1080`), hỗ trợ đầy đủ điều hướng Remote/D-pad và các tính năng kiểm soát phụ huynh FamilyTime.
-
-### 🚀 Lệnh khởi động Web Server
-Chạy lệnh HTTP server nội bộ (không phụ thuộc external framework):
-
-```bash
-# Khởi động server tại cổng 8888
-python3 -m http.server 8888 --directory docs/preview
-```
-
-### 🌐 Truy cập Web Simulation
-- **URL Local:** [http://localhost:8888/](http://localhost:8888/) hoặc [http://127.0.0.1:8888/index.html](http://127.0.0.1:8888/index.html)
-- **Nếu chạy trên WSL2 / Remote Dev:** Mở trình duyệt trên máy Host tại địa chỉ `http://localhost:8888/` (WSL tự động ánh xạ port).
-
-### 🎮 Phím tắt điều khiển Remote trên Web Simulation
-| Phím trên Bàn phím | Nút tương ứng trên TV Remote | Chức năng |
-| :--- | :--- | :--- |
-| **Mũi tên (← ↑ → ↓)** | D-Pad Navigation | Di chuyển focus giữa các icon app, platter dock và top bar pill |
-| **Enter** / **Space** | OK / Select | Chọn mở app, kích hoạt pill, bấm phím số PIN/OTP |
-| **Escape** / **Backspace** | Back | Thoát modal popup, đóng Control Center, lùi menu |
-| **H** | Home | Quay về màn hình chính Apple TV Launcher |
-| **Lâu giữ Enter (Long OK)** | Long-Press OK | Mở menu ngữ cảnh tvOS (Pin/Unpin, Reorder, Hide App, Info) |
-
-### 🛡️ Các kịch bản kiểm thử mô phỏng có sẵn
-- **Chuyển đổi Profile Mode:** Click vào Pill `[ 🔒 Parent ]` hoặc `[ 🧒 12m ]` trên thanh Top Bar để đổi chế độ hoặc mở Cài đặt FamilyTime.
-- **Bàn phím nhập mã OTP/PIN:** Mô phỏng D-pad keypad nhập 6 số Google Authenticator TOTP với nút auto-fill để test nhanh.
-- **Eye-Rest Quiz Break:** Tự động kích hoạt màn hình đếm ngược nghỉ mắt và câu hỏi kiểm tra sau chu kỳ xem TV.
-- **Control Center & Quick Settings:** Thử nghiệm Sleep Timer, Night Dimmer overlay, và chuyển đổi hình nền 4K.
-
----
-
-## 2. Android TV Emulator / Thiết bị Giả lập qua ADB
+## 1. Android TV Emulator / Thiết bị Giả lập qua ADB
 
 Khi chạy máy ảo Android TV (ví dụ AVD `MyGoogleTV` trên Android Studio / QEMU Windows):
 
@@ -94,7 +61,7 @@ adb -s <TARGET> shell am broadcast -a vn.familytv.parentalcontrol.ACTION_LOCK_KI
 
 ---
 
-## 3. Triển khai lên TV thật (Hardware Target)
+## 2. Triển khai lên TV thật (Hardware Target)
 
 Để đối chiếu và triển khai thực tế trên phần cứng Android TV (Sony, TCL, Xiaomi, Shield, Chromecast):
 
