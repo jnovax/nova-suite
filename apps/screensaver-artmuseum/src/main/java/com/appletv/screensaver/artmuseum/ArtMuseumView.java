@@ -13,6 +13,7 @@ import android.os.Looper;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Gravity;
+import android.view.View;
 import android.view.animation.LinearInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -37,8 +38,8 @@ public class ArtMuseumView extends FrameLayout {
     private final Random random = new Random();
     private final List<Integer> playlist = new ArrayList<>();
 
-    private ImageView currentView;
-    private ImageView nextView;
+    private SlideHolder currentSlide;
+    private SlideHolder nextSlide;
     private MuseumCardView cardView;
 
     private int playlistPosition = 0;
@@ -74,14 +75,12 @@ public class ArtMuseumView extends FrameLayout {
             Log.w("ArtMuseumView", "Failed to read prefs", e);
         }
 
-        currentView = new ImageView(context);
-        currentView.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        addView(currentView, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+        currentSlide = new SlideHolder(context);
+        addView(currentSlide.container);
 
-        nextView = new ImageView(context);
-        nextView.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        nextView.setAlpha(0f);
-        addView(nextView, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+        nextSlide = new SlideHolder(context);
+        nextSlide.container.setAlpha(0f);
+        addView(nextSlide.container);
 
         float density = getResources().getDisplayMetrics().density;
         cardView = new MuseumCardView(context);
@@ -112,11 +111,11 @@ public class ArtMuseumView extends FrameLayout {
         if (kenBurnsAnimator != null) {
             kenBurnsAnimator.cancel();
         }
-        if (currentView != null) {
-            currentView.animate().cancel();
+        if (currentSlide != null) {
+            currentSlide.container.animate().cancel();
         }
-        if (nextView != null) {
-            nextView.animate().cancel();
+        if (nextSlide != null) {
+            nextSlide.container.animate().cancel();
         }
         if (cardView != null) {
             cardView.dismiss();
@@ -159,41 +158,39 @@ public class ArtMuseumView extends FrameLayout {
         if (piece == null) return;
 
         executor.execute(() -> {
-            Bitmap bitmap = decodeAsset("paintings/" + piece.filename);
+            Bitmap fullBitmap = decodeAsset("paintings/" + piece.filename);
+            if (fullBitmap == null) return;
+            Bitmap ambientBitmap = FastBlur.createAmbientBlur(fullBitmap);
+
             handler.post(() -> {
-                if (!running || bitmap == null) {
-                    if (bitmap != null) {
-                        bitmap.recycle();
-                    }
+                if (!running) {
+                    fullBitmap.recycle();
+                    if (ambientBitmap != null) ambientBitmap.recycle();
                     return;
                 }
-                applyTransition(bitmap, piece);
+                applyTransition(fullBitmap, ambientBitmap, piece);
             });
         });
     }
 
-    private void applyTransition(Bitmap bitmap, ArtPiece piece) {
-        nextView.setImageBitmap(bitmap);
-        nextView.setAlpha(0f);
-        nextView.setScaleX(1.0f);
-        nextView.setScaleY(1.0f);
-        nextView.setTranslationX(0f);
-        nextView.setTranslationY(0f);
+    private void applyTransition(Bitmap fullBitmap, Bitmap ambientBitmap, ArtPiece piece) {
+        nextSlide.setContent(fullBitmap, ambientBitmap);
+        nextSlide.resetTransform();
 
-        // Crossfade nextView in
-        nextView.animate()
+        // Crossfade nextSlide in
+        nextSlide.container.animate()
                 .alpha(1f)
                 .setDuration(CROSSFADE_DURATION)
                 .setListener(new AnimatorListenerAdapter() {
                     @Override
                     public void onAnimationEnd(Animator animation) {
-                        // Swap views
-                        ImageView temp = currentView;
-                        currentView = nextView;
-                        nextView = temp;
-                        nextView.setAlpha(0f);
+                        // Swap slides
+                        SlideHolder temp = currentSlide;
+                        currentSlide = nextSlide;
+                        nextSlide = temp;
+                        nextSlide.container.setAlpha(0f);
 
-                        startKenBurns(currentView);
+                        startKenBurns(currentSlide);
                     }
                 })
                 .start();
@@ -204,7 +201,7 @@ public class ArtMuseumView extends FrameLayout {
         handler.postDelayed(nextSlideRunnable, SLIDE_DURATION);
     }
 
-    private void startKenBurns(ImageView view) {
+    private void startKenBurns(SlideHolder slide) {
         if (kenBurnsAnimator != null) kenBurnsAnimator.cancel();
 
         kenBurnsAnimator = ValueAnimator.ofFloat(0f, 1f);
@@ -212,9 +209,15 @@ public class ArtMuseumView extends FrameLayout {
         kenBurnsAnimator.setInterpolator(new LinearInterpolator());
         kenBurnsAnimator.addUpdateListener(anim -> {
             float frac = anim.getAnimatedFraction();
-            float scale = 1.0f + 0.08f * frac;
-            view.setScaleX(scale);
-            view.setScaleY(scale);
+            // Foreground artwork breathes subtly from 1.0f to 1.035f (100% visible, never cropped)
+            float fgScale = 1.0f + 0.035f * frac;
+            slide.fgArtwork.setScaleX(fgScale);
+            slide.fgArtwork.setScaleY(fgScale);
+
+            // Ambient background breathes slightly more from 1.0f to 1.05f
+            float bgScale = 1.0f + 0.05f * frac;
+            slide.ambientBg.setScaleX(bgScale);
+            slide.ambientBg.setScaleY(bgScale);
         });
         kenBurnsAnimator.start();
     }
@@ -225,6 +228,47 @@ public class ArtMuseumView extends FrameLayout {
             return BitmapFactory.decodeStream(is);
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    private static class SlideHolder {
+        final FrameLayout container;
+        final ImageView ambientBg;
+        final View scrimView;
+        final ImageView fgArtwork;
+
+        SlideHolder(Context context) {
+            container = new FrameLayout(context);
+            container.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+
+            ambientBg = new ImageView(context);
+            ambientBg.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            container.addView(ambientBg, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+
+            scrimView = new View(context);
+            scrimView.setBackgroundColor(0x99050508);
+            container.addView(scrimView, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+
+            fgArtwork = new ImageView(context);
+            fgArtwork.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            float density = context.getResources().getDisplayMetrics().density;
+            int padH = (int) (48 * density);
+            int padV = (int) (28 * density);
+            fgArtwork.setPadding(padH, padV, padH, padV);
+            container.addView(fgArtwork, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+        }
+
+        void setContent(Bitmap artwork, Bitmap ambient) {
+            fgArtwork.setImageBitmap(artwork);
+            ambientBg.setImageBitmap(ambient);
+        }
+
+        void resetTransform() {
+            container.setAlpha(0f);
+            fgArtwork.setScaleX(1.0f);
+            fgArtwork.setScaleY(1.0f);
+            ambientBg.setScaleX(1.0f);
+            ambientBg.setScaleY(1.0f);
         }
     }
 }
