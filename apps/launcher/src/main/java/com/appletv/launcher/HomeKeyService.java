@@ -155,11 +155,18 @@ public class HomeKeyService extends AccessibilityService {
         if ("inputs".equalsIgnoreCase(t)) return "inputs";
         if ("wallpaper_cycle".equalsIgnoreCase(t)) return "wallpaper_cycle";
         if ("wallpaper_picker".equalsIgnoreCase(t)) return "wallpaper_picker";
+        if ("screensaver".equalsIgnoreCase(t)) return "screensaver";
         return "app";
     }
 
     private void launchTarget(String target) {
         String type = getActionType(target);
+        if ("screensaver".equals(type)) {
+            if (ScreensaverPreferences.mode(this) != ScreensaverPreferences.OFF) {
+                ScreensaverDiscovery.launchScreensaver(this);
+            }
+            return;
+        }
         if ("quick_settings".equals(type)) {
             Intent intent = new Intent(this, QuickSettingsActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);

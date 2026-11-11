@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.view.KeyEvent;
@@ -55,7 +56,18 @@ public final class LauncherSettingsActivity extends Activity {
     private boolean animations;
     private boolean advancedEffects;
 
-    // Display & Night Dimmer Controls
+    // Display & Night Dimmer & Screensaver Controls
+    private LinearLayout screensaverModeContainer;
+    private TextView screensaverModeOff;
+    private TextView screensaverModeWallpapers;
+    private final List<TextView> screensaverExternalButtons = new ArrayList<>();
+    private final List<ScreensaverDiscovery.ScreensaverOption> discoveredScreensavers = new ArrayList<>();
+    private final TextView[] screensaverTimeoutChoices = new TextView[5];
+    private final int[] screensaverTimeoutValues = {0, 2, 5, 10, 15};
+    private TextView screensaverOverlayChoice;
+    private TextView screensaverPreviewChoice;
+    private TextView screensaverSystemSettingsChoice;
+
     private TextView dimmerModeOff;
     private TextView dimmerModeScheduled;
     private TextView dimmerModeAlways;
@@ -67,6 +79,7 @@ public final class LauncherSettingsActivity extends Activity {
 
     // Remotes Pane Controls
     private TextView remoteKeysChoice;
+    private TextView mappedKeysHeader;
     private LinearLayout mappedKeysList;
 
     // Apps & System Pane Controls
@@ -148,7 +161,22 @@ public final class LauncherSettingsActivity extends Activity {
         dimmerLevel50 = findViewById(R.id.dimmerLevel50);
         dimmerLevel70 = findViewById(R.id.dimmerLevel70);
 
+        screensaverModeContainer = findViewById(R.id.screensaverModeContainer);
+        screensaverModeOff = findViewById(R.id.screensaverModeOff);
+        screensaverModeWallpapers = findViewById(R.id.screensaverModeWallpapers);
+
+        screensaverTimeoutChoices[0] = findViewById(R.id.screensaverTimeout0);
+        screensaverTimeoutChoices[1] = findViewById(R.id.screensaverTimeout2);
+        screensaverTimeoutChoices[2] = findViewById(R.id.screensaverTimeout5);
+        screensaverTimeoutChoices[3] = findViewById(R.id.screensaverTimeout10);
+        screensaverTimeoutChoices[4] = findViewById(R.id.screensaverTimeout15);
+
+        screensaverOverlayChoice = findViewById(R.id.screensaverOverlayChoice);
+        screensaverPreviewChoice = findViewById(R.id.screensaverPreviewChoice);
+        screensaverSystemSettingsChoice = findViewById(R.id.screensaverSystemSettingsChoice);
+
         remoteKeysChoice = findViewById(R.id.remoteKeysChoice);
+        mappedKeysHeader = findViewById(R.id.mappedKeysHeader);
         mappedKeysList = findViewById(R.id.mappedKeysList);
 
         hiddenAppsChoice = findViewById(R.id.hiddenAppsChoice);
@@ -213,9 +241,7 @@ public final class LauncherSettingsActivity extends Activity {
                 target = columnChoices[Math.max(0, Math.min(columns - 4, 3))];
                 break;
             case 1:
-                target = dimmerMode == Config.DIMMER_MODE_OFF ? dimmerModeOff
-                        : dimmerMode == Config.DIMMER_MODE_ALWAYS_ON ? dimmerModeAlways
-                        : dimmerModeScheduled;
+                target = screensaverModeOff != null ? screensaverModeOff : screensaverModeWallpapers;
                 break;
             case 2:
                 target = remoteKeysChoice;
@@ -299,6 +325,11 @@ public final class LauncherSettingsActivity extends Activity {
                     .remove(Config.KEY_DOCK_OVERRIDE)
                     .remove(Config.KEY_HIDDEN_OVERRIDE)
                     .remove(Config.KEY_REMOTE_OVERRIDE)
+                    .remove(Config.KEY_DIMMER_MODE)
+                    .remove(Config.KEY_DIMMER_LEVEL)
+                    .remove(ScreensaverPreferences.MODE)
+                    .remove(ScreensaverPreferences.TIMEOUT)
+                    .remove(ScreensaverPreferences.OVERLAY)
                     .commit();
             Config current = Config.load(this);
             columns = current.columns;
@@ -311,6 +342,87 @@ public final class LauncherSettingsActivity extends Activity {
     }
 
     private void setupDisplayNightPane() {
+        attachBackToTabListener(screensaverModeOff);
+        screensaverModeOff.setOnClickListener(v -> {
+            choices.edit().putInt(ScreensaverPreferences.MODE, ScreensaverPreferences.MODE_OFF).apply();
+            refresh();
+        });
+
+        attachBackToTabListener(screensaverModeWallpapers);
+        screensaverModeWallpapers.setOnClickListener(v -> {
+            choices.edit().putInt(ScreensaverPreferences.MODE, ScreensaverPreferences.MODE_WALLPAPERS).apply();
+            refresh();
+        });
+
+        // Dynamic discovered screensavers
+        discoveredScreensavers.clear();
+        discoveredScreensavers.addAll(ScreensaverDiscovery.getAvailableScreensavers(this));
+        screensaverExternalButtons.clear();
+
+        for (ScreensaverDiscovery.ScreensaverOption option : discoveredScreensavers) {
+            TextView btn = new TextView(this);
+            btn.setText(option.label);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            lp.setMarginEnd((int) (8 * getResources().getDisplayMetrics().density));
+            btn.setLayoutParams(lp);
+            btn.setFocusable(true);
+            btn.setClickable(true);
+            btn.setBackgroundResource(R.drawable.settings_choice_bg);
+            btn.setTextColor(getColorStateList(R.drawable.pill_text));
+            btn.setStateListAnimator(android.animation.AnimatorInflater.loadStateListAnimator(this, R.animator.tvos_focus_control));
+            btn.setTextSize(13f);
+            int padH = (int) (14 * getResources().getDisplayMetrics().density);
+            int padV = (int) (8 * getResources().getDisplayMetrics().density);
+            btn.setPadding(padH, padV, padH, padV);
+
+            attachBackToTabListener(btn);
+            btn.setOnClickListener(v -> {
+                ScreensaverPreferences.setSelectedExternal(this, option.id, option.activityName);
+                refresh();
+            });
+
+            screensaverModeContainer.addView(btn);
+            screensaverExternalButtons.add(btn);
+        }
+
+        for (int i = 0; i < screensaverTimeoutChoices.length; i++) {
+            final int timeoutVal = screensaverTimeoutValues[i];
+            TextView btn = screensaverTimeoutChoices[i];
+            attachBackToTabListener(btn);
+            btn.setOnClickListener(v -> {
+                choices.edit().putInt(ScreensaverPreferences.TIMEOUT, timeoutVal).apply();
+                refresh();
+            });
+        }
+
+        attachBackToTabListener(screensaverOverlayChoice);
+        screensaverOverlayChoice.setOnClickListener(v -> {
+            boolean next = !ScreensaverPreferences.overlay(this);
+            choices.edit().putBoolean(ScreensaverPreferences.OVERLAY, next).apply();
+            refresh();
+        });
+
+        attachBackToTabListener(screensaverPreviewChoice);
+        screensaverPreviewChoice.setOnClickListener(v -> {
+            if (ScreensaverPreferences.mode(this) == ScreensaverPreferences.MODE_OFF) {
+                Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
+            } else {
+                ScreensaverDiscovery.launchScreensaver(this);
+            }
+        });
+
+        attachBackToTabListener(screensaverSystemSettingsChoice);
+        screensaverSystemSettingsChoice.setOnClickListener(v -> {
+            try {
+                startActivity(new Intent(Settings.ACTION_DREAM_SETTINGS));
+            } catch (ActivityNotFoundException e) {
+                open(new Intent(Settings.ACTION_DISPLAY_SETTINGS));
+            }
+        });
+
         TextView[] modeButtons = {dimmerModeOff, dimmerModeScheduled, dimmerModeAlways};
         int[] modeValues = {Config.DIMMER_MODE_OFF, Config.DIMMER_MODE_SCHEDULED, Config.DIMMER_MODE_ALWAYS_ON};
 
@@ -349,18 +461,60 @@ public final class LauncherSettingsActivity extends Activity {
         remoteKeysChoice.setOnClickListener(v -> showCaptureKeyModal());
     }
 
+    private String describeKeyCode(int keyCode) {
+        switch (keyCode) {
+            case 83: return "Settings (#83)";
+            case 178: return "Input (#178)";
+            case 183: return "Red (#183)";
+            case 184: return "Green (#184)";
+            case 185: return "Yellow (#185)";
+            case 186: return "Blue (#186)";
+            case 190: return "YouTube (#190)";
+            case 4001: return "Channel (#4001)";
+            case 4062: return "Netflix (#4062)";
+            case 4168: return "VTVgo (#4168)";
+            default:
+                String keyStr = KeyEvent.keyCodeToString(keyCode);
+                if (keyStr != null && keyStr.startsWith("KEYCODE_")) {
+                    String clean = keyStr.substring(8).replace('_', ' ');
+                    return clean + " (#" + keyCode + ")";
+                }
+                return "Key #" + keyCode;
+        }
+    }
+
     private void refreshMappedKeysList() {
         mappedKeysList.removeAllViews();
         Config cfg = Config.load(this);
         Map<Integer, String> allKeys = new TreeMap<>(cfg.remoteKeys);
 
+        if (mappedKeysHeader != null) {
+            mappedKeysHeader.setText(allKeys.isEmpty()
+                    ? getString(R.string.mapped_keys_header)
+                    : getString(R.string.mapped_keys_header_count, allKeys.size()));
+        }
+
         if (allKeys.isEmpty()) {
-            TextView emptyText = new TextView(this);
-            emptyText.setText(R.string.no_remote_keys);
-            emptyText.setTextColor(getColor(R.color.tvos_label_secondary));
-            emptyText.setTextSize(14f);
-            emptyText.setPadding(16, 8, 16, 8);
-            mappedKeysList.addView(emptyText);
+            LinearLayout emptyCard = new LinearLayout(this);
+            emptyCard.setOrientation(LinearLayout.VERTICAL);
+            emptyCard.setBackgroundResource(R.drawable.settings_choice_bg);
+            emptyCard.setPadding(32, 24, 32, 24);
+
+            TextView emptyTitle = new TextView(this);
+            emptyTitle.setText(R.string.no_remote_keys);
+            emptyTitle.setTextColor(getColor(R.color.tvos_label_primary));
+            emptyTitle.setTextSize(14f);
+            emptyTitle.setTypeface(null, Typeface.BOLD);
+
+            TextView emptyDesc = new TextView(this);
+            emptyDesc.setText(R.string.no_remote_keys_desc);
+            emptyDesc.setTextColor(getColor(R.color.tvos_label_secondary));
+            emptyDesc.setTextSize(12.5f);
+            emptyDesc.setPadding(0, 6, 0, 0);
+
+            emptyCard.addView(emptyTitle);
+            emptyCard.addView(emptyDesc);
+            mappedKeysList.addView(emptyCard);
             return;
         }
 
@@ -368,8 +522,13 @@ public final class LauncherSettingsActivity extends Activity {
             final int code = entry.getKey();
             final String target = entry.getValue();
 
-            TextView row = new TextView(this, null, 0, R.style.SettingsRow);
-            row.setText("Button #" + code + "  \u2192  " + describeTarget(target));
+            View row = getLayoutInflater().inflate(R.layout.item_mapped_key, mappedKeysList, false);
+            TextView badge = row.findViewById(R.id.keyBadge);
+            TextView targetView = row.findViewById(R.id.keyTarget);
+
+            badge.setText(describeKeyCode(code));
+            targetView.setText(describeTarget(target));
+
             attachBackToTabListener(row);
             row.setOnClickListener(v -> showPickActionForKeyModal(code));
             mappedKeysList.addView(row);
@@ -497,6 +656,8 @@ public final class LauncherSettingsActivity extends Activity {
         labels.add(getString(R.string.action_recent_apps));
         targets.add("inputs");
         labels.add(getString(R.string.action_inputs));
+        targets.add("screensaver");
+        labels.add(getString(R.string.screensaver_action));
 
         PackageManager pm = getPackageManager();
         Intent probe = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER);
@@ -582,6 +743,7 @@ public final class LauncherSettingsActivity extends Activity {
         if ("quick_settings".equals(target)) return getString(R.string.action_quick_settings);
         if ("recent_apps".equals(target)) return getString(R.string.action_recent_apps);
         if ("inputs".equals(target)) return getString(R.string.action_inputs);
+        if ("screensaver".equals(target)) return getString(R.string.screensaver_action);
         try {
             PackageManager pm = getPackageManager();
             CharSequence cs = pm.getApplicationLabel(pm.getApplicationInfo(target, 0));
@@ -605,6 +767,41 @@ public final class LauncherSettingsActivity extends Activity {
     }
 
     private void refresh() {
+        int currentMode = ScreensaverPreferences.mode(this);
+        String selectedComp = ScreensaverPreferences.selectedComponent(this);
+
+        if (screensaverModeOff != null) {
+            screensaverModeOff.setSelected(currentMode == ScreensaverPreferences.MODE_OFF);
+        }
+        if (screensaverModeWallpapers != null) {
+            screensaverModeWallpapers.setSelected(currentMode == ScreensaverPreferences.MODE_WALLPAPERS);
+        }
+        for (int i = 0; i < screensaverExternalButtons.size(); i++) {
+            TextView btn = screensaverExternalButtons.get(i);
+            ScreensaverDiscovery.ScreensaverOption opt = discoveredScreensavers.get(i);
+            btn.setSelected(currentMode == ScreensaverPreferences.MODE_EXTERNAL && opt.id.equals(selectedComp));
+        }
+
+        int currentTimeout = ScreensaverPreferences.timeout(this);
+        for (int i = 0; i < screensaverTimeoutChoices.length; i++) {
+            if (screensaverTimeoutChoices[i] != null) {
+                screensaverTimeoutChoices[i].setSelected(currentTimeout == screensaverTimeoutValues[i]);
+            }
+        }
+
+        boolean screensaverEnabled = (currentMode != ScreensaverPreferences.OFF);
+        if (screensaverOverlayChoice != null) {
+            boolean overlayActive = ScreensaverPreferences.overlay(this);
+            screensaverOverlayChoice.setText(getString(R.string.screensaver_overlay,
+                    getString(overlayActive ? R.string.on : R.string.off)));
+            screensaverOverlayChoice.setEnabled(screensaverEnabled);
+            screensaverOverlayChoice.setAlpha(screensaverEnabled ? 1f : 0.4f);
+        }
+        if (screensaverPreviewChoice != null) {
+            screensaverPreviewChoice.setEnabled(screensaverEnabled);
+            screensaverPreviewChoice.setAlpha(screensaverEnabled ? 1f : 0.4f);
+        }
+
         for (int i = 0; i < columnChoices.length; i++) {
             columnChoices[i].setSelected(columns == i + 4);
         }
@@ -646,7 +843,10 @@ public final class LauncherSettingsActivity extends Activity {
                 || choices.contains(Config.KEY_HIDDEN_OVERRIDE)
                 || choices.contains(Config.KEY_REMOTE_OVERRIDE)
                 || choices.contains(Config.KEY_DIMMER_MODE)
-                || choices.contains(Config.KEY_DIMMER_LEVEL);
+                || choices.contains(Config.KEY_DIMMER_LEVEL)
+                || choices.contains(ScreensaverPreferences.MODE)
+                || choices.contains(ScreensaverPreferences.TIMEOUT)
+                || choices.contains(ScreensaverPreferences.OVERLAY);
     }
 
     private void open(Intent intent) {

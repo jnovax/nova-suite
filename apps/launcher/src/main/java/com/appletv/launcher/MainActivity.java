@@ -163,6 +163,24 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private PopupWindow openPopup;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Runnable idleScreensaver = () -> {
+        if (hasWindowFocus() && ScreensaverPreferences.idleDelayMillis(
+                ScreensaverPreferences.mode(this), ScreensaverPreferences.timeout(this)) > 0) {
+            ScreensaverDiscovery.launchScreensaver(this);
+        }
+    };
+
+    private void resetScreensaverTimer() {
+        handler.removeCallbacks(idleScreensaver);
+        long delay = ScreensaverPreferences.idleDelayMillis(
+                ScreensaverPreferences.mode(this), ScreensaverPreferences.timeout(this));
+        if (delay > 0) handler.postDelayed(idleScreensaver, delay);
+    }
+
+    @Override public void onUserInteraction() {
+        super.onUserInteraction();
+        resetScreensaverTimer();
+    }
     /** Refreshes the network pill when the connection changes: at boot Wi-Fi often connects after Home is shown. */
     private final ConnectivityManager.NetworkCallback networkCallback = new ConnectivityManager.NetworkCallback() {
         @Override
@@ -965,6 +983,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onResume() {
         super.onResume();
+        resetScreensaverTimer();
         lastHomePressTime = android.os.SystemClock.uptimeMillis();
         // A festival that started or ended while Home was in the background: rebuild with or without it.
         if (festive != festival.active(LocalDate.now())) {
@@ -1066,6 +1085,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onPause() {
         super.onPause();
+        handler.removeCallbacks(idleScreensaver);
         stopAmbientAnimation();
         heroName.animate().cancel();
         ambient.animate().cancel();
@@ -1088,7 +1108,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) showCardPrompt();
+        if (hasFocus) {
+            resetScreensaverTimer();
+            showCardPrompt();
+        } else handler.removeCallbacks(idleScreensaver);
     }
 
     @Override
