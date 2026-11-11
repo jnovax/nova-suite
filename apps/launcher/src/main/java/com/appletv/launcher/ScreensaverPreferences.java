@@ -47,7 +47,15 @@ final class ScreensaverPreferences {
     }
 
     static int mode(Context context) {
-        return validMode(prefs(context).getInt(MODE, MODE_WALLPAPERS));
+        int m = validMode(prefs(context).getInt(MODE, MODE_WALLPAPERS));
+        if (m == MODE_EXTERNAL) {
+            String comp = selectedComponent(context);
+            String pkg = extractPackage(comp);
+            if (pkg == null || !ScreensaverDiscovery.isPackageInstalled(context, pkg)) {
+                return MODE_WALLPAPERS;
+            }
+        }
+        return m;
     }
 
     static void setMode(Context context, int mode) {

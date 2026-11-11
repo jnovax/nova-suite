@@ -255,6 +255,70 @@ public final class LauncherSettingsActivity extends Activity {
         }
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        rebuildScreensaverModePills();
+        refresh();
+    }
+
+    private void rebuildScreensaverModePills() {
+        if (screensaverModeContainer == null) return;
+
+        for (TextView btn : screensaverExternalButtons) {
+            screensaverModeContainer.removeView(btn);
+        }
+        screensaverExternalButtons.clear();
+        discoveredScreensavers.clear();
+
+        List<ScreensaverDiscovery.ScreensaverOption> discovered = ScreensaverDiscovery.getAvailableScreensavers(this);
+        discoveredScreensavers.addAll(discovered);
+
+        int currentMode = ScreensaverPreferences.mode(this);
+        if (currentMode == ScreensaverPreferences.MODE_EXTERNAL) {
+            String selectedComp = ScreensaverPreferences.selectedComponent(this);
+            boolean found = false;
+            for (ScreensaverDiscovery.ScreensaverOption opt : discoveredScreensavers) {
+                if (opt.id.equals(selectedComp)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                ScreensaverPreferences.setMode(this, ScreensaverPreferences.MODE_WALLPAPERS);
+            }
+        }
+
+        for (ScreensaverDiscovery.ScreensaverOption option : discoveredScreensavers) {
+            TextView btn = new TextView(this);
+            btn.setText(option.label);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            lp.setMarginEnd((int) (8 * getResources().getDisplayMetrics().density));
+            btn.setLayoutParams(lp);
+            btn.setFocusable(true);
+            btn.setClickable(true);
+            btn.setBackgroundResource(R.drawable.settings_choice_bg);
+            btn.setTextColor(getColorStateList(R.drawable.pill_text));
+            btn.setStateListAnimator(android.animation.AnimatorInflater.loadStateListAnimator(this, R.animator.tvos_focus_control));
+            btn.setTextSize(13f);
+            int padH = (int) (14 * getResources().getDisplayMetrics().density);
+            int padV = (int) (8 * getResources().getDisplayMetrics().density);
+            btn.setPadding(padH, padV, padH, padV);
+
+            attachBackToTabListener(btn);
+            btn.setOnClickListener(v -> {
+                ScreensaverPreferences.setSelectedExternal(this, option.id, option.activityName);
+                refresh();
+            });
+
+            screensaverModeContainer.addView(btn);
+            screensaverExternalButtons.add(btn);
+        }
+    }
+
     private void attachBackToTabListener(View view) {
         if (view == null) return;
         view.setOnKeyListener((v, keyCode, event) -> {
@@ -354,41 +418,7 @@ public final class LauncherSettingsActivity extends Activity {
             refresh();
         });
 
-        // Dynamic discovered screensavers
-        discoveredScreensavers.clear();
-        discoveredScreensavers.addAll(ScreensaverDiscovery.getAvailableScreensavers(this));
-        screensaverExternalButtons.clear();
-        android.util.Log.i("LauncherSettings", "Discovered screensavers count: " + discoveredScreensavers.size());
-
-        for (ScreensaverDiscovery.ScreensaverOption option : discoveredScreensavers) {
-            android.util.Log.i("LauncherSettings", "Adding screensaver option: " + option.label + " (" + option.id + ")");
-            TextView btn = new TextView(this);
-            btn.setText(option.label);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-            );
-            lp.setMarginEnd((int) (8 * getResources().getDisplayMetrics().density));
-            btn.setLayoutParams(lp);
-            btn.setFocusable(true);
-            btn.setClickable(true);
-            btn.setBackgroundResource(R.drawable.settings_choice_bg);
-            btn.setTextColor(getColorStateList(R.drawable.pill_text));
-            btn.setStateListAnimator(android.animation.AnimatorInflater.loadStateListAnimator(this, R.animator.tvos_focus_control));
-            btn.setTextSize(13f);
-            int padH = (int) (14 * getResources().getDisplayMetrics().density);
-            int padV = (int) (8 * getResources().getDisplayMetrics().density);
-            btn.setPadding(padH, padV, padH, padV);
-
-            attachBackToTabListener(btn);
-            btn.setOnClickListener(v -> {
-                ScreensaverPreferences.setSelectedExternal(this, option.id, option.activityName);
-                refresh();
-            });
-
-            screensaverModeContainer.addView(btn);
-            screensaverExternalButtons.add(btn);
-        }
+        rebuildScreensaverModePills();
 
         for (int i = 0; i < screensaverTimeoutChoices.length; i++) {
             final int timeoutVal = screensaverTimeoutValues[i];
