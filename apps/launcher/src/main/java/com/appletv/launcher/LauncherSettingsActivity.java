@@ -358,8 +358,10 @@ public final class LauncherSettingsActivity extends Activity {
         discoveredScreensavers.clear();
         discoveredScreensavers.addAll(ScreensaverDiscovery.getAvailableScreensavers(this));
         screensaverExternalButtons.clear();
+        android.util.Log.i("LauncherSettings", "Discovered screensavers count: " + discoveredScreensavers.size());
 
         for (ScreensaverDiscovery.ScreensaverOption option : discoveredScreensavers) {
+            android.util.Log.i("LauncherSettings", "Adding screensaver option: " + option.label + " (" + option.id + ")");
             TextView btn = new TextView(this);
             btn.setText(option.label);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(

@@ -54,10 +54,11 @@
     <!-- tvOS Settings list row: Callout, transparent until focused (white, black text). -->
     <style name="SettingsRow">
         <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">36dp</item>
+        <item name="android:layout_height">42dp</item>
         <item name="android:gravity">center_vertical</item>
-        <item name="android:paddingStart">16dp</item>
-        <item name="android:paddingEnd">16dp</item>
+        <item name="android:paddingStart">18dp</item>
+        <item name="android:paddingEnd">18dp</item>
+        <item name="android:layout_marginBottom">8dp</item>
         <item name="android:singleLine">true</item>
         <item name="android:ellipsize">end</item>
         <item name="android:background">@drawable/settings_choice_bg</item>
@@ -68,11 +69,26 @@
         <item name="android:clickable">true</item>
         <item name="android:stateListAnimator">@animator/tvos_focus_control</item>
     </style>
-    <!-- Segmented choice (Apps per row): the selected value is filled tvOS blue. -->
+    <!-- Segmented choice (Apps per row, Screensaver, Dimmer): the selected value is filled tvOS blue. -->
     <style name="SettingsColumnChoice" parent="SettingsRow">
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_weight">1</item>
-        <item name="android:layout_marginEnd">10dp</item>
+        <item name="android:layout_marginBottom">0dp</item>
+        <item name="android:layout_marginEnd">8dp</item>
+        <item name="android:paddingStart">4dp</item>
+        <item name="android:paddingEnd">4dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <!-- Horizontal pill choice in scrollable containers (Screensavers) -->
+    <style name="SettingsPillChoice" parent="SettingsRow">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:minWidth">90dp</item>
+        <item name="android:layout_marginBottom">0dp</item>
+        <item name="android:layout_marginEnd">8dp</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
         <item name="android:gravity">center</item>
         <item name="android:fontFamily">sans-serif-medium</item>
     </style>

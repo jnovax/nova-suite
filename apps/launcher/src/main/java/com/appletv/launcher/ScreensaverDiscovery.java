@@ -3,6 +3,8 @@ package com.appletv.launcher;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Drawable;
@@ -64,7 +66,13 @@ public final class ScreensaverDiscovery {
                 // Skip launcher's internal ClockDream if present
                 if (context.getPackageName().equals(pkg)) continue;
 
-                String label = ri.loadLabel(pm).toString();
+                CharSequence cs = ri.loadLabel(pm);
+                if (cs == null || cs.length() == 0) {
+                    if (ri.serviceInfo.applicationInfo != null) {
+                        cs = ri.serviceInfo.applicationInfo.loadLabel(pm);
+                    }
+                }
+                String label = (cs != null && cs.length() > 0) ? cs.toString() : pkg;
                 Drawable icon = ri.loadIcon(pm);
 
                 String id = pkg + "/" + serviceClass;
@@ -88,7 +96,18 @@ public final class ScreensaverDiscovery {
                 return customActivities.get(0).activityInfo.name;
             }
 
-            // 2. Look for Leanback or standard launcher activity
+            // 2. Look for exported activity in package info
+            PackageInfo pi = pm.getPackageInfo(packageName, PackageManager.GET_ACTIVITIES);
+            if (pi != null && pi.activities != null && pi.activities.length > 0) {
+                for (ActivityInfo ai : pi.activities) {
+                    if (ai.exported) {
+                        return ai.name;
+                    }
+                }
+                return pi.activities[0].name;
+            }
+
+            // 3. Fallback to Leanback or standard launcher activity
             Intent launchIntent = pm.getLeanbackLaunchIntentForPackage(packageName);
             if (launchIntent == null) {
                 launchIntent = pm.getLaunchIntentForPackage(packageName);

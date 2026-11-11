@@ -200,8 +200,8 @@
                                 android:layout_height="wrap_content"
                                 android:orientation="horizontal">
 
-                                <TextView android:id="@+id/screensaverModeOff" style="@style/SettingsColumnChoice" android:text="@string/off" />
-                                <TextView android:id="@+id/screensaverModeWallpapers" style="@style/SettingsColumnChoice" android:text="@string/screensaver_wallpapers" />
+                                <TextView android:id="@+id/screensaverModeOff" style="@style/SettingsPillChoice" android:text="@string/off" />
+                                <TextView android:id="@+id/screensaverModeWallpapers" style="@style/SettingsPillChoice" android:text="@string/screensaver_wallpapers" />
                             </LinearLayout>
                         </HorizontalScrollView>
 
