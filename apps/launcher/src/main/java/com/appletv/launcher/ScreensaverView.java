@@ -31,7 +31,9 @@ final class ScreensaverView extends FrameLayout {
     private final Random random = new Random();
     private final List<File> files = new ArrayList<>();
     private ExecutorService decoder;
+    private FrameLayout imageContainer;
     private View clock;
+    private View ambient;
     private GradientDrawable glow;
     private final int[] colors = {0xFF2B5CFF, 0xFF00A39A, 0xFF8A3FFC, 0xFFE0661B, 0xFFD6336C};
     private int colorIndex;
@@ -49,12 +51,14 @@ final class ScreensaverView extends FrameLayout {
                 placeClock();
                 clock.animate().alpha(1f).setDuration(1200).start();
             }).start();
-            int from = colors[colorIndex];
-            colorIndex = (colorIndex + 1) % colors.length;
-            colorAnimation = ValueAnimator.ofObject(new ArgbEvaluator(), from, colors[colorIndex]);
-            colorAnimation.setDuration(8000);
-            colorAnimation.addUpdateListener(a -> setGlow((int) a.getAnimatedValue()));
-            colorAnimation.start();
+            if (ambient != null && ambient.getVisibility() == VISIBLE) {
+                int from = colors[colorIndex];
+                colorIndex = (colorIndex + 1) % colors.length;
+                colorAnimation = ValueAnimator.ofObject(new ArgbEvaluator(), from, colors[colorIndex]);
+                colorAnimation.setDuration(8000);
+                colorAnimation.addUpdateListener(a -> setGlow((int) a.getAnimatedValue()));
+                colorAnimation.start();
+            }
             handler.postDelayed(this, 60000);
         }
     };
@@ -82,19 +86,18 @@ final class ScreensaverView extends FrameLayout {
         super(context);
         setBackgroundColor(0xff050508);
 
-        LayoutInflater.from(context).inflate(R.layout.dream_clock, this, true);
-        getChildAt(0).setBackgroundResource(0);
-        clock = findViewById(R.id.dreamContent);
-        View ambient = findViewById(R.id.dreamAmbient);
-        glow = new GradientDrawable();
-        glow.setGradientType(GradientDrawable.RADIAL_GRADIENT);
-        ambient.setBackground(glow);
-        ambient.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> glow.setGradientRadius(Math.max(1, (r - l) * .55f)));
-        setGlow(colors[0]);
+        // 1. Image container at the base layer
+        imageContainer = new FrameLayout(context);
+        addView(imageContainer, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
 
-        if (!ScreensaverPreferences.overlay(context)) {
-            clock.setVisibility(GONE);
+        // 2. Floating clock overlay on top of images
+        LayoutInflater.from(context).inflate(R.layout.dream_clock, this, true);
+        View dreamRoot = getChildAt(1);
+        if (dreamRoot != null) {
+            dreamRoot.setBackgroundResource(0);
         }
+        clock = findViewById(R.id.dreamContent);
+        ambient = findViewById(R.id.dreamAmbient);
 
         File dir = Config.dir(context);
         if (dir != null) {
@@ -108,6 +111,25 @@ final class ScreensaverView extends FrameLayout {
             if (files.isEmpty() && current.isFile()) {
                 files.add(current);
             }
+        }
+
+        // If we have wallpapers, hide the opaque ambient glow so the photos shine through!
+        if (!files.isEmpty()) {
+            if (ambient != null) ambient.setVisibility(GONE);
+        } else {
+            // Only fallback to ambient gradient when no wallpaper photos exist
+            if (ambient != null) {
+                glow = new GradientDrawable();
+                glow.setGradientType(GradientDrawable.RADIAL_GRADIENT);
+                ambient.setBackground(glow);
+                ambient.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) ->
+                        glow.setGradientRadius(Math.max(1, (r - l) * .55f)));
+                setGlow(colors[0]);
+            }
+        }
+
+        if (!ScreensaverPreferences.overlay(context)) {
+            if (clock != null) clock.setVisibility(GONE);
         }
     }
 
@@ -145,7 +167,7 @@ final class ScreensaverView extends FrameLayout {
         float y = maxY * (.1f + .8f * random.nextFloat());
         clock.setX(x);
         clock.setY(y);
-        if (getWidth() > 0 && getHeight() > 0) {
+        if (glow != null && getWidth() > 0 && getHeight() > 0) {
             glow.setGradientCenter((x + clock.getWidth() / 2f) / getWidth(), (y + clock.getHeight() / 2f) / getHeight());
         }
     }
@@ -182,11 +204,10 @@ final class ScreensaverView extends FrameLayout {
         image.setScaleType(ImageView.ScaleType.CENTER_CROP);
         image.setImageBitmap(bitmap);
         image.setAlpha(0f);
-        int imageLayer = old == null ? 0 : indexOfChild(old) + 1;
-        addView(image, imageLayer, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+        imageContainer.addView(image, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
         displayed = image;
         image.animate().alpha(1f).setDuration(1500).withEndAction(() -> {
-            if (old != null) removeView(old);
+            if (old != null) imageContainer.removeView(old);
             if (running) image.animate().scaleX(1.05f).scaleY(1.05f).setDuration(18500).start();
         }).start();
     }

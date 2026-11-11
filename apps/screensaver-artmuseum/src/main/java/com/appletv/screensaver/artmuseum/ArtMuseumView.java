@@ -4,6 +4,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -16,22 +17,31 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ArtMuseumView extends FrameLayout {
+
+    private static final String PREFS_NAME = "artmuseum_prefs";
+    private static final String KEY_LAST_INDEX = "last_piece_index";
 
     private static final long SLIDE_DURATION = 25_000L;
     private static final long CROSSFADE_DURATION = 1500L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final Random random = new Random();
+    private final List<Integer> playlist = new ArrayList<>();
 
     private ImageView currentView;
     private ImageView nextView;
     private MuseumCardView cardView;
 
-    private int currentIndex = 0;
+    private int playlistPosition = 0;
+    private int lastShownIndex = -1;
     private boolean running = false;
     private ValueAnimator kenBurnsAnimator;
 
@@ -55,6 +65,12 @@ public class ArtMuseumView extends FrameLayout {
     private void init(Context context) {
         setBackgroundColor(0xFF000000);
 
+        try {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            lastShownIndex = prefs.getInt(KEY_LAST_INDEX, -1);
+        } catch (Exception ignored) {
+        }
+
         currentView = new ImageView(context);
         currentView.setScaleType(ImageView.ScaleType.CENTER_CROP);
         addView(currentView, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
@@ -73,9 +89,16 @@ public class ArtMuseumView extends FrameLayout {
         addView(cardView, cardLp);
     }
 
+    private void initPlaylist() {
+        playlist.clear();
+        playlist.addAll(ArtCatalog.createShuffledIndices(random, lastShownIndex));
+        playlistPosition = 0;
+    }
+
     public void start() {
         if (running) return;
         running = true;
+        initPlaylist();
         loadAndTransitionNext();
     }
 
@@ -85,9 +108,16 @@ public class ArtMuseumView extends FrameLayout {
         if (kenBurnsAnimator != null) {
             kenBurnsAnimator.cancel();
         }
+        if (currentView != null) {
+            currentView.animate().cancel();
+        }
+        if (nextView != null) {
+            nextView.animate().cancel();
+        }
         if (cardView != null) {
             cardView.dismiss();
         }
+        playlist.clear();
     }
 
     @Override
@@ -104,14 +134,34 @@ public class ArtMuseumView extends FrameLayout {
 
     private void loadAndTransitionNext() {
         if (!running) return;
-        final int index = currentIndex++;
+        if (playlist.isEmpty() || playlistPosition >= playlist.size()) {
+            initPlaylist();
+        }
+        if (playlist.isEmpty()) return;
+
+        final int index = playlist.get(playlistPosition++);
+        lastShownIndex = index;
+
+        try {
+            getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit()
+                    .putInt(KEY_LAST_INDEX, index)
+                    .apply();
+        } catch (Exception ignored) {
+        }
+
         final ArtPiece piece = ArtCatalog.getPiece(index);
         if (piece == null) return;
 
         executor.execute(() -> {
             Bitmap bitmap = decodeAsset("paintings/" + piece.filename);
             handler.post(() -> {
-                if (!running || bitmap == null) return;
+                if (!running || bitmap == null) {
+                    if (bitmap != null) {
+                        bitmap.recycle();
+                    }
+                    return;
+                }
                 applyTransition(bitmap, piece);
             });
         });

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Screensaver (ClockDream) as a tvOS aerial: clock and date that drift around over the aerial art. -->
+<!-- Screensaver (ClockDream): clock and date that drift around over the wallpaper art. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"

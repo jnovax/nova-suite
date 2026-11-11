@@ -3,6 +3,7 @@ package com.appletv.screensaver.artmuseum;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 
 public final class ArtCatalog {
 
@@ -122,5 +123,28 @@ public final class ArtCatalog {
         int size = PIECES.size();
         int normalized = ((index % size) + size) % size;
         return PIECES.get(normalized);
+    }
+
+    /**
+     * Generates a randomly shuffled playlist of indices [0..count-1].
+     * If previousIndex >= 0 and count > 1, guarantees that the first item
+     * does not repeat previousIndex so every screensaver launch starts fresh.
+     */
+    public static List<Integer> createShuffledIndices(Random random, int previousIndex) {
+        int count = PIECES.size();
+        List<Integer> list = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            list.add(i);
+        }
+        if (count <= 1) {
+            return list;
+        }
+        Random rng = (random != null) ? random : new Random();
+        Collections.shuffle(list, rng);
+        if (previousIndex >= 0 && list.get(0) == previousIndex) {
+            int swapIndex = 1 + rng.nextInt(count - 1);
+            Collections.swap(list, 0, swapIndex);
+        }
+        return list;
     }
 }

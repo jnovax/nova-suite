@@ -37,9 +37,6 @@ public final class QuickSettingsActivity extends Activity {
         // 2. Bluetooth & Audio shortcut
         addActionRow(rows, R.drawable.ic_settings, getString(R.string.bluetooth_audio), this::openBluetoothSettings);
 
-        // 3. Start Screensaver immediately
-        addActionRow(rows, R.drawable.ic_picture, getString(R.string.start_screensaver), this::startScreensaver);
-
         // 5. 4K Wallpaper Picker
         addRow(rows, R.drawable.ic_picture, R.string.wallpaper, 0,
                 new Intent(this, MainActivity.class).setAction(MainActivity.ACTION_SHOW_WALLPAPERS));
@@ -104,17 +101,6 @@ public final class QuickSettingsActivity extends Activity {
             } catch (Exception ignored) {}
         }
         Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
-    }
-
-    private void startScreensaver() {
-        try {
-            Intent dream = new Intent(Intent.ACTION_MAIN)
-                    .setClassName("com.android.systemui", "com.android.systemui.Somnambulator")
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(dream);
-        } catch (Exception e) {
-            Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
-        }
     }
 
     /** Settings pressed again while the panel is up. */

@@ -66,6 +66,13 @@ public final class ScreensaverDiscovery {
                 // Skip launcher's internal ClockDream if present
                 if (context.getPackageName().equals(pkg)) continue;
 
+                // Only include screensavers that have a launchable Activity!
+                // Services without an Activity cannot be previewed or launched by Launcher.
+                String activityClass = findCompanionActivity(pm, pkg);
+                if (activityClass == null) {
+                    continue;
+                }
+
                 CharSequence cs = ri.loadLabel(pm);
                 if (cs == null || cs.length() == 0) {
                     if (ri.serviceInfo.applicationInfo != null) {
@@ -76,8 +83,6 @@ public final class ScreensaverDiscovery {
                 Drawable icon = ri.loadIcon(pm);
 
                 String id = pkg + "/" + serviceClass;
-                String activityClass = findCompanionActivity(pm, pkg);
-
                 options.add(new ScreensaverOption(id, label, pkg, serviceClass, activityClass, icon, false));
             }
         }
@@ -104,7 +109,6 @@ public final class ScreensaverDiscovery {
                         return ai.name;
                     }
                 }
-                return pi.activities[0].name;
             }
 
             // 3. Fallback to Leanback or standard launcher activity
@@ -154,7 +158,7 @@ public final class ScreensaverDiscovery {
                     context.startActivity(intent);
                     return;
                 } catch (Exception e) {
-                    Log.w(TAG, "Failed launching screensaver activity " + activity + ", fallback to Somnambulator: " + e.getMessage());
+                    Log.w(TAG, "Failed launching screensaver activity " + activity + ": " + e.getMessage());
                 }
             }
 

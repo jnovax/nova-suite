@@ -91,7 +91,6 @@
     <string name="sleep_timer_remaining">%1$d min</string>
     <string name="night_dimmer_state">Night Dimmer: %1$s</string>
     <string name="bluetooth_audio">Bluetooth &amp; Audio</string>
-    <string name="start_screensaver">Start Screensaver</string>
     <string name="hidden_apps_state">Hidden apps: %1$d</string>
     <string name="no_hidden_apps">No apps are hidden. Hold OK on any app on the home screen to hide it.</string>
     <string name="unhide_app_title">Select an app to unhide</string>
@@ -110,7 +109,16 @@
 
     <!-- tvOS 18 2-Column Settings Categories -->
     <string name="tab_appearance">Appearance</string>
-    <string name="tab_display_night">Display &amp; Night</string>
+    <string name="tab_display_night">Display &amp; Screensaver</string>
+    <string name="screensaver_mode">Screensaver mode: %1$s</string>
+    <string name="screensaver_timeout">Start after: %1$s</string>
+    <string name="screensaver_overlay">Clock overlay: %1$s</string>
+    <string name="screensaver_clock">Clock</string>
+    <string name="screensaver_wallpapers">Wallpapers</string>
+    <string name="screensaver_minutes">%1$d minutes</string>
+    <string name="screensaver_preview">Preview screensaver</string>
+    <string name="screensaver_action">Start screensaver</string>
+    <string name="screensaver_system_settings">System screensaver settings</string>
     <string name="tab_remotes">Remotes &amp; Buttons</string>
     <string name="tab_apps_system">Apps &amp; System</string>
 
@@ -124,4 +132,11 @@
 
     <string name="unhide_app_desc">Select a hidden app to unhide and restore it to your home screen.</string>
     <string name="no_remote_keys">No custom buttons mapped yet.</string>
+    <string name="no_remote_keys_desc">Click \"+ Map a remote button\" above and press any non-protected button on your TV remote to create a shortcut.</string>
+    <string name="mapped_keys_header">Mapped buttons</string>
+    <string name="mapped_keys_header_count">Mapped buttons (%1$d)</string>
+    <string name="screensaver_header">Screensaver</string>
+    <string name="screensaver_type_label">Type</string>
+    <string name="screensaver_timeout_label">Start after</string>
+    <string name="remote_mapper_desc">Map hardware buttons on your TV remote to quickly launch apps, switch inputs, or toggle 4K wallpapers. Navigation, Volume and Power buttons are protected.</string>
 </resources>
