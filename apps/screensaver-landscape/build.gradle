@@ -1,0 +1,47 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.appletv.screensaver.landscape'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.appletv.screensaver.landscape"
+        minSdk 28
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+        resConfigs "en", "vi"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+
+    packaging {
+        resources {
+            excludes += 'META-INF/*.version'
+        }
+    }
+}
+
+apply from: rootProject.file('gradle/unified-signing.gradle')
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}
