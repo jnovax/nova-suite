@@ -16,4 +16,6 @@ dependencyResolutionManagement {
 rootProject.name = "nova-tv"
 include ':apps:launcher'
 include ':apps:parental-control'
+include ':apps:screensaver-flipclock'
+include ':apps:screensaver-artmuseum'
 include ':core:contract'
