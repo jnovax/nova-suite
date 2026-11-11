@@ -27,3 +27,7 @@ wallpapers/
 raw/
 resources/
 
+# Git worktrees
+.worktrees/
+worktrees/
+
