@@ -223,7 +223,10 @@ public class LandscapeView extends FrameLayout {
         nextSlide.resetTransform();
 
         // Directional Ken Burns setup
-        final boolean isPanorama = piece.aspectRatio > 1.78f;
+        // If wider than 16:9, drift horizontally. If taller, drift vertically.
+        // For 16:9 images, randomly alternate horizontal or vertical motion for cinematic variety.
+        final boolean isPanorama = (piece.aspectRatio > 1.78f) ||
+                (Math.abs(piece.aspectRatio - 1.778f) < 0.05f && random.nextBoolean());
         final boolean reverseMotion = random.nextBoolean();
 
         startKenBurns(nextSlide, isPanorama, reverseMotion);

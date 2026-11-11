@@ -1,82 +1,94 @@
 #!/usr/bin/env python3
 """
-Convert landscape paintings from resources/ zip archives to optimized WebP for Android TV.
-Filters out vertical paintings (aspect ratio < 1.0).
-Resizes to max dimension 2560px using Lanczos filter.
+Convert landscape paintings from resources/landscape/ to optimized QHD (2560x1440) WebP for Android TV.
+Resizes using Lanczos filter and encodes to WebP Q85.
 Outputs to apps/screensaver-landscape/src/main/assets/landscapes/.
 """
-import io
 import os
 import sys
-import zipfile
 from PIL import Image
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(SCRIPT_DIR)
 OUT_DIR = os.path.join(ROOT_DIR, "apps", "screensaver-landscape", "src", "main", "assets", "landscapes")
 
-ZIP_FILES = [
-    os.path.join(ROOT_DIR, "resources", "tranh-phong-canh-p1.zip"),
-    os.path.join(ROOT_DIR, "resources", "tranh-phong-canh-p2.zip"),
+# Search for resources/landscape directory (support both root repo and worktree execution)
+CANDIDATE_DIRS = [
+    os.path.join(ROOT_DIR, "resources", "landscape"),
+    os.path.join(ROOT_DIR, "..", "..", "resources", "landscape"),
+    "/home/lamnh/projects/nova-tv-launcher/resources/landscape",
 ]
 
-# Mapping from zip filename to clean asset id
+SRC_DIR = None
+for c in CANDIDATE_DIRS:
+    if os.path.isdir(c):
+        SRC_DIR = os.path.abspath(c)
+        break
+
+# Mapping from source jpg in resources/landscape to target asset filename
 FILE_MAPPING = {
-    "01-hay-wain-constable.jpg": "hay_wain.webp",
-    "02-ninth-wave-aivazovsky.jpg": "ninth_wave.webp",
-    "03-rain-steam-speed-turner.jpg": "rain_steam_speed.webp",
-    "04-chalk-cliffs-rugen-friedrich.jpg": "chalk_cliffs.webp",
-    "05-mont-sainte-victoire-cezanne.jpg": "mont_sainte_victoire.webp",
-    "06-oxbow-thomas-cole.jpg": "oxbow.webp",
-    "07-heart-of-andes-church.jpg": "heart_of_andes.webp",
-    "08-niagara-church.jpg": "niagara.webp",
-    "09-rocky-mountains-bierstadt.jpg": "rocky_mountains.webp",
-    "10-magpie-monet.jpg": "magpie.webp",
-    # 11-rouen-cathedral-monet.jpg is vertical -> EXCLUDED
-    "12-olive-trees-van-gogh.jpg": "olive_trees.webp",
-    # 13-sudden-shower-hiroshige.jpg is vertical -> EXCLUDED
-    "14-flood-port-marly-sisley.jpg": "flood_port_marly.webp",
-    "15-bridge-narni-corot.jpg": "bridge_narni.webp",
-    # 16-plum-park-hiroshige.jpg is vertical -> EXCLUDED
+    "01-hay-wain-constable-16x9-3840x2160.jpg": "hay_wain.webp",
+    "02-ninth-wave-aivazovsky-16x9-3840x2160.jpg": "ninth_wave.webp",
+    "04-chalk-cliffs-rugen-friedrich-16x9-3840x2160.jpg": "chalk_cliffs.webp",
+    "05-mont-sainte-victoire-cezanne-16x9-3840x2160.jpg": "mont_sainte_victoire.webp",
+    "06-oxbow-thomas-cole-16x9-3840x2160.jpg": "oxbow.webp",
+    "07-heart-of-andes-church-16x9-3840x2160.jpg": "heart_of_andes.webp",
+    "08-niagara-church-16x9-3840x2160.jpg": "niagara.webp",
+    "09-rocky-mountains-bierstadt-16x9-3840x2160.jpg": "rocky_mountains.webp",
+    "14-flood-port-marly-sisley-16x9-3840x2160.jpg": "flood_port_marly.webp",
+    "15-bridge-narni-corot-16x9-3840x2160.jpg": "bridge_narni.webp",
 }
 
-MAX_DIM = 2560
+TARGET_WIDTH = 2560
+TARGET_HEIGHT = 1440
 WEBP_QUALITY = 85
 
 def convert_all():
+    if not SRC_DIR:
+        print("Error: Could not locate resources/landscape directory in search paths:", file=sys.stderr)
+        for c in CANDIDATE_DIRS:
+            print(f"  - {c}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Source directory: {SRC_DIR}")
+    print(f"Output directory: {OUT_DIR}")
     os.makedirs(OUT_DIR, exist_ok=True)
+
+    # Clean existing webp files in target directory to avoid obsolete assets
+    existing_files = os.listdir(OUT_DIR)
+    for f in existing_files:
+        if f.endswith(".webp") and f not in FILE_MAPPING.values():
+            stale_path = os.path.join(OUT_DIR, f)
+            print(f"Removing stale asset: {f}")
+            os.remove(stale_path)
+
     converted_count = 0
+    total_bytes = 0
 
-    for zip_path in ZIP_FILES:
-        if not os.path.exists(zip_path):
-            print(f"Error: Zip file not found: {zip_path}", file=sys.stderr)
+    for src_name, target_name in FILE_MAPPING.items():
+        src_path = os.path.join(SRC_DIR, src_name)
+        if not os.path.exists(src_path):
+            print(f"Error: Missing source image {src_path}", file=sys.stderr)
             sys.exit(1)
-        with zipfile.ZipFile(zip_path, "r") as z:
-            for zip_name, target_name in FILE_MAPPING.items():
-                if zip_name in z.namelist():
-                    data = z.read(zip_name)
-                    im = Image.open(io.BytesIO(data))
-                    w, h = im.size
-                    if w < h:
-                        print(f"Skipping vertical painting: {zip_name} ({w}x{h})")
-                        continue
 
-                    # Resample if exceeds MAX_DIM
-                    if max(w, h) > MAX_DIM:
-                        im.thumbnail((MAX_DIM, MAX_DIM), Image.Resampling.LANCZOS)
+        im = Image.open(src_path)
+        if im.size != (TARGET_WIDTH, TARGET_HEIGHT):
+            im = im.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
 
-                    # Ensure RGB mode (no RGBA or CMYK)
-                    if im.mode != "RGB":
-                        im = im.convert("RGB")
+        if im.mode != "RGB":
+            im = im.convert("RGB")
 
-                    out_path = os.path.join(OUT_DIR, target_name)
-                    im.save(out_path, format="WEBP", quality=WEBP_QUALITY, method=6)
-                    size_kb = os.path.getsize(out_path) / 1024
-                    print(f"Converted {zip_name} -> {target_name} ({im.size[0]}x{im.size[1]}, {size_kb:.1f} KB)")
-                    converted_count += 1
+        out_path = os.path.join(OUT_DIR, target_name)
+        im.save(out_path, format="WEBP", quality=WEBP_QUALITY, method=6)
 
-    print(f"\nTotal converted landscape paintings: {converted_count}")
-    assert converted_count == 13, f"Expected 13 paintings, got {converted_count}"
+        sz = os.path.getsize(out_path)
+        total_bytes += sz
+        converted_count += 1
+        print(f"[{converted_count:02d}/10] Converted {src_name} -> {target_name} ({TARGET_WIDTH}x{TARGET_HEIGHT}, {sz / 1024:.1f} KB)")
+
+    print(f"\nSuccessfully converted {converted_count} landscape paintings to QHD WebP.")
+    print(f"Total package asset size: {total_bytes / (1024 * 1024):.2f} MB ({total_bytes / converted_count / 1024:.1f} KB avg)")
+    assert converted_count == 10, f"Expected 10 paintings, got {converted_count}"
 
 if __name__ == "__main__":
     convert_all()
