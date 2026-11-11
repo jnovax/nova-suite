@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # tools/deploy.sh — Selective APK builder and deployer
-# Usage: ./tools/deploy.sh <launcher|parental-control|flipclock|artmuseum|screensavers|all> [TARGET_DEV]
+# Usage: ./tools/deploy.sh <launcher|parental-control|flipclock|artmuseum|landscape|screensavers|all> [TARGET_DEV]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,10 +22,10 @@ TARGET_DEV="${2:-}"
 
 # Validate target argument before device discovery
 case "$TARGET" in
-    launcher|parental-control|parental|flipclock|artmuseum|screensavers|all)
+    launcher|parental-control|parental|flipclock|artmuseum|landscape|screensavers|all)
         ;;
     *)
-        echo "Error: Unknown target '$TARGET'. Use: launcher | parental-control | flipclock | artmuseum | screensavers | all" >&2
+        echo "Error: Unknown target '$TARGET'. Use: launcher | parental-control | flipclock | artmuseum | landscape | screensavers | all" >&2
         exit 1
         ;;
 esac
@@ -170,6 +170,21 @@ deploy_artmuseum() {
     adb_install "$apk"
 }
 
+deploy_landscape() {
+    echo "==> Building Screensaver Landscape APK..."
+    (cd "$ROOT_DIR" && ./gradlew :apps:screensaver-landscape:assembleRelease)
+    local apk=""
+    if [ -d "$ROOT_DIR/apps/screensaver-landscape/build/outputs/apk/release" ]; then
+        apk=$(find "$ROOT_DIR/apps/screensaver-landscape/build/outputs/apk/release" -name "*.apk" 2>/dev/null | head -n 1 || true)
+    fi
+    if [ -z "$apk" ] || [ ! -f "$apk" ]; then
+        echo "Error: Landscape Screensaver APK not found" >&2
+        exit 1
+    fi
+    echo "==> Installing Landscape Screensaver to $TARGET_DEV..."
+    adb_install "$apk"
+}
+
 sync_time
 
 case "$TARGET" in
@@ -185,14 +200,19 @@ case "$TARGET" in
     artmuseum)
         deploy_artmuseum
         ;;
+    landscape)
+        deploy_landscape
+        ;;
     screensavers)
         deploy_flipclock
         deploy_artmuseum
+        deploy_landscape
         ;;
     all)
         deploy_parental
         deploy_flipclock
         deploy_artmuseum
+        deploy_landscape
         deploy_launcher
         ;;
 esac
