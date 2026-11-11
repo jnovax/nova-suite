@@ -34,10 +34,7 @@ public final class QuickSettingsActivity extends Activity {
         // 1. Sleep Timer (in-place cycle: Off -> 15m -> 30m -> 60m -> 90m -> Off)
         sleepTitle = addToggleRow(rows, R.drawable.ic_settings, formatSleepTimerText(), this::cycleSleepTimer);
 
-        // 2. Bluetooth & Audio shortcut
-        addActionRow(rows, R.drawable.ic_settings, getString(R.string.bluetooth_audio), this::openBluetoothSettings);
-
-        // 5. 4K Wallpaper Picker
+        // 2. 4K Wallpaper Picker
         addRow(rows, R.drawable.ic_picture, R.string.wallpaper, 0,
                 new Intent(this, MainActivity.class).setAction(MainActivity.ACTION_SHOW_WALLPAPERS));
 
@@ -88,21 +85,6 @@ public final class QuickSettingsActivity extends Activity {
         } catch (Exception ignored) {}
     }
 
-    private void openBluetoothSettings() {
-        Intent[] candidates = new Intent[]{
-                new Intent(Settings.ACTION_BLUETOOTH_SETTINGS),
-                new Intent(Settings.ACTION_SOUND_SETTINGS),
-                new Intent(Settings.ACTION_SETTINGS)
-        };
-        for (Intent i : candidates) {
-            try {
-                startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-                return;
-            } catch (Exception ignored) {}
-        }
-        Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
-    }
-
     /** Settings pressed again while the panel is up. */
     @Override
     protected void onNewIntent(Intent intent) {
@@ -128,19 +110,6 @@ public final class QuickSettingsActivity extends Activity {
         row.setOnClickListener(v -> onToggle.run());
         rows.addView(row);
         return titleView;
-    }
-
-    private void addActionRow(LinearLayout rows, int icon, String text, Runnable action) {
-        View row = getLayoutInflater().inflate(R.layout.item_input, rows, false);
-        ((ImageView) row.findViewById(R.id.icon)).setImageResource(icon);
-        ((TextView) row.findViewById(R.id.title)).setText(text);
-        row.findViewById(R.id.dot).setVisibility(View.GONE);
-        row.findViewById(R.id.status).setVisibility(View.GONE);
-        row.setOnClickListener(v -> {
-            action.run();
-            finish();
-        });
-        rows.addView(row);
     }
 
     private void addRow(LinearLayout rows, int icon, int title, int status, Intent target) {

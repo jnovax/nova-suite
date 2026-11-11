@@ -66,7 +66,6 @@ public final class LauncherSettingsActivity extends Activity {
     private final int[] screensaverTimeoutValues = {0, 2, 5, 10, 15};
     private TextView screensaverOverlayChoice;
     private TextView screensaverPreviewChoice;
-    private TextView screensaverSystemSettingsChoice;
 
     private TextView dimmerModeOff;
     private TextView dimmerModeScheduled;
@@ -173,7 +172,6 @@ public final class LauncherSettingsActivity extends Activity {
 
         screensaverOverlayChoice = findViewById(R.id.screensaverOverlayChoice);
         screensaverPreviewChoice = findViewById(R.id.screensaverPreviewChoice);
-        screensaverSystemSettingsChoice = findViewById(R.id.screensaverSystemSettingsChoice);
 
         remoteKeysChoice = findViewById(R.id.remoteKeysChoice);
         mappedKeysHeader = findViewById(R.id.mappedKeysHeader);
@@ -290,23 +288,8 @@ public final class LauncherSettingsActivity extends Activity {
         }
 
         for (ScreensaverDiscovery.ScreensaverOption option : discoveredScreensavers) {
-            TextView btn = new TextView(this);
+            TextView btn = (TextView) getLayoutInflater().inflate(R.layout.item_settings_pill, screensaverModeContainer, false);
             btn.setText(option.label);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-            );
-            lp.setMarginEnd((int) (8 * getResources().getDisplayMetrics().density));
-            btn.setLayoutParams(lp);
-            btn.setFocusable(true);
-            btn.setClickable(true);
-            btn.setBackgroundResource(R.drawable.settings_choice_bg);
-            btn.setTextColor(getColorStateList(R.drawable.pill_text));
-            btn.setStateListAnimator(android.animation.AnimatorInflater.loadStateListAnimator(this, R.animator.tvos_focus_control));
-            btn.setTextSize(13f);
-            int padH = (int) (14 * getResources().getDisplayMetrics().density);
-            int padV = (int) (8 * getResources().getDisplayMetrics().density);
-            btn.setPadding(padH, padV, padH, padV);
 
             attachBackToTabListener(btn);
             btn.setOnClickListener(v -> {
@@ -379,6 +362,7 @@ public final class LauncherSettingsActivity extends Activity {
             }
         });
 
+        followThemeChoice.setText(R.string.follow_theme);
         attachBackToTabListener(followThemeChoice);
         followThemeChoice.setOnClickListener(v -> {
             if (!hasOnTvChoices()) return;
@@ -432,6 +416,9 @@ public final class LauncherSettingsActivity extends Activity {
 
         attachBackToTabListener(screensaverOverlayChoice);
         screensaverOverlayChoice.setOnClickListener(v -> {
+            if (ScreensaverPreferences.mode(this) != ScreensaverPreferences.MODE_WALLPAPERS) {
+                return;
+            }
             boolean next = !ScreensaverPreferences.overlay(this);
             choices.edit().putBoolean(ScreensaverPreferences.OVERLAY, next).apply();
             refresh();
@@ -443,15 +430,6 @@ public final class LauncherSettingsActivity extends Activity {
                 Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
             } else {
                 ScreensaverDiscovery.launchScreensaver(this);
-            }
-        });
-
-        attachBackToTabListener(screensaverSystemSettingsChoice);
-        screensaverSystemSettingsChoice.setOnClickListener(v -> {
-            try {
-                startActivity(new Intent(Settings.ACTION_DREAM_SETTINGS));
-            } catch (ActivityNotFoundException e) {
-                open(new Intent(Settings.ACTION_DISPLAY_SETTINGS));
             }
         });
 
@@ -572,10 +550,7 @@ public final class LauncherSettingsActivity extends Activity {
         hiddenAppsChoice.setOnClickListener(v -> showHiddenAppsModal());
 
         attachBackToTabListener(defaultHomeChoice);
-        defaultHomeChoice.setOnClickListener(v -> {
-            Toast.makeText(this, R.string.home_settings_help, Toast.LENGTH_LONG).show();
-            open(new Intent(Settings.ACTION_HOME_SETTINGS));
-        });
+        defaultHomeChoice.setOnClickListener(v -> showDefaultHomeModal());
     }
 
     private void setupModalOverlay() {
@@ -599,7 +574,7 @@ public final class LauncherSettingsActivity extends Activity {
 
         modalItemsContainer.removeAllViews();
         for (int i = 0; i < labels.size(); i++) {
-            TextView item = new TextView(this, null, 0, R.style.SettingsRow);
+            TextView item = (TextView) getLayoutInflater().inflate(R.layout.item_modal_choice, modalItemsContainer, false);
             item.setText(labels.get(i));
             final Runnable action = (actions != null && i < actions.size()) ? actions.get(i) : null;
             item.setOnClickListener(v -> {
@@ -655,6 +630,58 @@ public final class LauncherSettingsActivity extends Activity {
         }
 
         showModalDialog(getString(R.string.unhide_app_title), getString(R.string.unhide_app_desc), labels, actions);
+    }
+
+    private void showDefaultHomeModal() {
+        Intent homeIntent = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
+        PackageManager pm = getPackageManager();
+        List<ResolveInfo> resolved = pm.queryIntentActivities(homeIntent, PackageManager.MATCH_DEFAULT_ONLY);
+        if (resolved == null || resolved.isEmpty()) {
+            resolved = pm.queryIntentActivities(homeIntent, 0);
+        }
+
+        List<CharSequence> labels = new ArrayList<>();
+        List<Runnable> actions = new ArrayList<>();
+
+        String myPkg = getPackageName();
+        if (resolved != null) {
+            for (ResolveInfo info : resolved) {
+                if (info.activityInfo == null) continue;
+                String pkg = info.activityInfo.packageName;
+                if ("com.android.tv.settings".equals(pkg)) continue;
+
+                CharSequence label = info.loadLabel(pm);
+                boolean isCurrent = myPkg.equals(pkg);
+                String display = label + (isCurrent ? " (Current Default)" : "");
+                labels.add(display);
+                actions.add(() -> {
+                    if (isCurrent) {
+                        Toast.makeText(this, R.string.app_name, Toast.LENGTH_SHORT).show();
+                    } else {
+                        try {
+                            Intent launch = new Intent(Intent.ACTION_MAIN)
+                                    .addCategory(Intent.CATEGORY_HOME)
+                                    .setClassName(info.activityInfo.packageName, info.activityInfo.name)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(launch);
+                        } catch (Exception e) {
+                            Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
+            }
+        }
+
+        labels.add("Open TV System Settings");
+        actions.add(() -> open(new Intent(Settings.ACTION_SETTINGS)));
+
+        labels.add("Android Default Apps Picker");
+        actions.add(() -> {
+            Toast.makeText(this, R.string.home_settings_help, Toast.LENGTH_LONG).show();
+            open(new Intent(Settings.ACTION_HOME_SETTINGS));
+        });
+
+        showModalDialog(getString(R.string.home_settings), getString(R.string.home_settings_help), labels, actions);
     }
 
     private void showCaptureKeyModal() {
@@ -822,12 +849,13 @@ public final class LauncherSettingsActivity extends Activity {
         }
 
         boolean screensaverEnabled = (currentMode != ScreensaverPreferences.OFF);
+        boolean isWallpapers = (currentMode == ScreensaverPreferences.MODE_WALLPAPERS);
         if (screensaverOverlayChoice != null) {
             boolean overlayActive = ScreensaverPreferences.overlay(this);
             screensaverOverlayChoice.setText(getString(R.string.screensaver_overlay,
                     getString(overlayActive ? R.string.on : R.string.off)));
-            screensaverOverlayChoice.setEnabled(screensaverEnabled);
-            screensaverOverlayChoice.setAlpha(screensaverEnabled ? 1f : 0.4f);
+            screensaverOverlayChoice.setEnabled(isWallpapers);
+            screensaverOverlayChoice.setAlpha(isWallpapers ? 1f : 0.4f);
         }
         if (screensaverPreviewChoice != null) {
             screensaverPreviewChoice.setEnabled(screensaverEnabled);

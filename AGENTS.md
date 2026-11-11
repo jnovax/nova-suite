@@ -9,7 +9,7 @@ Transform any connected Android TV or Google TV (Sony, TCL, Xiaomi, OnePlus, His
 1. **tvOS 18 Home Launcher (`apps/launcher`, ~298 KB):**
    - Lowered dock platter (`20dp` bottom margin) with tight `14dp` transition gap to the app grid below and persistent app labels under grid tiles (`UNHOVERED_NAME_ALPHA = 0.78f`, `1.0f` on focus).
    - **tvOS Long-Press `OK` Context Menu:** Pin/Unpin to Dock, Move Left/Right on Dock, Hide App, and System App Info directly via remote (strictly locked in `Kid Mode`).
-   - **Control Center (`QuickSettingsActivity` + `HomeKeyService`):** In-place **Sleep Timer** (`Off / 15m / 30m / 60m / 90m` -> stops media and triggers TV standby via `GLOBAL_ACTION_LOCK_SCREEN`), **Night Dimmer** (`Off / 25% / 50% / 70%` via `TYPE_ACCESSIBILITY_OVERLAY`), **Bluetooth & Audio** shortcut, and **1-Click Screensaver**.
+   - **Control Center (`QuickSettingsActivity` + `HomeKeyService`):** In-place **Sleep Timer** (`Off / 15m / 30m / 60m / 90m` -> stops media and triggers TV standby via `GLOBAL_ACTION_LOCK_SCREEN`), **Night Dimmer** (`Off / 25% / 50% / 70%` via `TYPE_ACCESSIBILITY_OVERLAY`), and **1-Click Screensaver**.
    - **Auto `[ 💾 USB ]` Top-Bar Pill:** Automatically appears when a removable USB/external drive is mounted; opens a 2-row glass menu for **Nova Video Player** (`org.courville.nova`) and **Storage & Safely Eject**.
    - **On-TV Remote Key Mapper & Hidden Apps Manager (`LauncherSettingsActivity`):** Interactive key capture dialog to bind any non-protected remote button to launcher actions or installed apps without ADB, plus 1-click app unhide.
 2. **FamilyTime Parental Control (`apps/parental-control`) & Shared IPC (`core/contract`):**

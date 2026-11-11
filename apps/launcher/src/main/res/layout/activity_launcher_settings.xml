@@ -69,6 +69,8 @@
                 android:layout_weight="0.32"
                 android:layout_marginEnd="28dp"
                 android:padding="16dp"
+                android:clipChildren="false"
+                android:clipToPadding="false"
                 android:background="@drawable/settings_glass_card"
                 android:orientation="vertical">
 
@@ -103,7 +105,9 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="0.68"
-                android:padding="24dp"
+                android:padding="20dp"
+                android:clipChildren="true"
+                android:clipToPadding="true"
                 android:background="@drawable/settings_glass_card">
 
                 <!-- PANE 1: Appearance -->
@@ -112,11 +116,19 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:scrollbars="none"
+                    android:clipChildren="true"
+                    android:clipToPadding="true"
                     android:visibility="visible">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:paddingTop="8dp"
+                        android:paddingBottom="8dp"
+                        android:clipChildren="false"
+                        android:clipToPadding="false"
                         android:orientation="vertical">
 
                         <TextView
@@ -128,12 +140,14 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
                             android:layout_marginBottom="20dp"
+                            android:clipChildren="false"
+                            android:clipToPadding="false"
                             android:orientation="horizontal">
 
                             <TextView android:id="@+id/columns4" style="@style/SettingsColumnChoice" android:text="4" />
                             <TextView android:id="@+id/columns5" style="@style/SettingsColumnChoice" android:text="5" />
                             <TextView android:id="@+id/columns6" style="@style/SettingsColumnChoice" android:text="6" />
-                            <TextView android:id="@+id/columns7" style="@style/SettingsColumnChoice" android:text="7" />
+                            <TextView android:id="@+id/columns7" style="@style/SettingsColumnChoice" android:layout_marginEnd="0dp" android:text="7" />
                         </LinearLayout>
 
                         <TextView
@@ -158,6 +172,7 @@
                         <TextView
                             android:id="@+id/followThemeChoice"
                             style="@style/SettingsRow"
+                            android:text="@string/follow_theme"
                             android:layout_marginTop="20dp" />
                     </LinearLayout>
                 </ScrollView>
@@ -168,12 +183,20 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:scrollbars="none"
+                    android:clipChildren="true"
+                    android:clipToPadding="true"
                     android:visibility="gone">
 
                     <LinearLayout
                         android:id="@+id/displaySettingsContents"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:paddingTop="8dp"
+                        android:paddingBottom="8dp"
+                        android:clipChildren="false"
+                        android:clipToPadding="false"
                         android:orientation="vertical">
 
                         <!-- SECTION 1: SCREENSAVER -->
@@ -192,12 +215,20 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="6dp"
                             android:layout_marginBottom="16dp"
+                            android:paddingStart="10dp"
+                            android:paddingEnd="10dp"
+                            android:paddingTop="6dp"
+                            android:paddingBottom="6dp"
+                            android:clipChildren="false"
+                            android:clipToPadding="false"
                             android:scrollbars="none">
 
                             <LinearLayout
                                 android:id="@+id/screensaverModeContainer"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
+                                android:clipChildren="false"
+                                android:clipToPadding="false"
                                 android:orientation="horizontal">
 
                                 <TextView android:id="@+id/screensaverModeOff" style="@style/SettingsPillChoice" android:text="@string/off" />
@@ -215,6 +246,8 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="6dp"
                             android:layout_marginBottom="16dp"
+                            android:clipChildren="false"
+                            android:clipToPadding="false"
                             android:orientation="horizontal">
 
                             <TextView android:id="@+id/screensaverTimeout0" style="@style/SettingsColumnChoice" android:text="@string/off" />
@@ -224,32 +257,29 @@
                             <TextView android:id="@+id/screensaverTimeout15" style="@style/SettingsColumnChoice" android:layout_marginEnd="0dp" android:text="15 min" />
                         </LinearLayout>
 
-                        <TextView
-                            android:id="@+id/screensaverOverlayChoice"
-                            style="@style/SettingsRow"
-                            android:layout_marginBottom="8dp" />
-
+                        <!-- Clock Overlay & Screensaver Preview: 2 buttons side-by-side on 1 row -->
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
-                            android:layout_marginBottom="28dp"
+                            android:layout_marginBottom="24dp"
+                            android:clipChildren="false"
+                            android:clipToPadding="false"
                             android:orientation="horizontal">
+
+                            <TextView
+                                android:id="@+id/screensaverOverlayChoice"
+                                style="@style/SettingsColumnChoice"
+                                android:layout_width="0dp"
+                                android:layout_weight="1" />
 
                             <TextView
                                 android:id="@+id/screensaverPreviewChoice"
                                 style="@style/SettingsColumnChoice"
                                 android:layout_width="0dp"
                                 android:layout_weight="1"
-                                android:text="@string/screensaver_preview" />
-
-                            <TextView
-                                android:id="@+id/screensaverSystemSettingsChoice"
-                                style="@style/SettingsColumnChoice"
-                                android:layout_width="0dp"
-                                android:layout_weight="1"
                                 android:layout_marginEnd="0dp"
-                                android:text="@string/screensaver_system_settings" />
+                                android:text="@string/screensaver_preview" />
                         </LinearLayout>
 
                         <!-- SECTION 2: NIGHT DIMMER -->
@@ -262,6 +292,8 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="6dp"
                             android:layout_marginBottom="16dp"
+                            android:clipChildren="false"
+                            android:clipToPadding="false"
                             android:orientation="horizontal">
 
                             <TextView android:id="@+id/dimmerModeOff" style="@style/SettingsColumnChoice" android:text="@string/dimmer_mode_off" />
@@ -279,6 +311,8 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="6dp"
                             android:layout_marginBottom="10dp"
+                            android:clipChildren="false"
+                            android:clipToPadding="false"
                             android:orientation="horizontal">
 
                             <TextView android:id="@+id/dimmerLevel25" style="@style/SettingsColumnChoice" android:text="25%" />
@@ -298,11 +332,19 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:scrollbars="none"
+                    android:clipChildren="true"
+                    android:clipToPadding="true"
                     android:visibility="gone">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:paddingTop="8dp"
+                        android:paddingBottom="8dp"
+                        android:clipChildren="false"
+                        android:clipToPadding="false"
                         android:orientation="vertical">
 
                         <TextView
@@ -331,6 +373,8 @@
                             android:id="@+id/mappedKeysList"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:clipChildren="false"
+                            android:clipToPadding="false"
                             android:orientation="vertical" />
                     </LinearLayout>
                 </ScrollView>
@@ -341,11 +385,19 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:scrollbars="none"
+                    android:clipChildren="true"
+                    android:clipToPadding="true"
                     android:visibility="gone">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:paddingTop="8dp"
+                        android:paddingBottom="8dp"
+                        android:clipChildren="false"
+                        android:clipToPadding="false"
                         android:orientation="vertical">
 
                         <TextView
@@ -384,7 +436,7 @@
         android:focusable="true">
 
         <LinearLayout
-            android:layout_width="560dp"
+            android:layout_width="580dp"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:padding="28dp"
@@ -407,19 +459,28 @@
                 android:layout_height="wrap_content"
                 android:textColor="@color/tvos_label_secondary"
                 android:textSize="13sp"
+                android:lineSpacingExtra="3dp"
                 android:layout_marginBottom="16dp"
                 android:visibility="gone" />
 
             <ScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:maxHeight="340dp"
+                android:maxHeight="360dp"
+                android:clipChildren="true"
+                android:clipToPadding="true"
                 android:scrollbars="none">
 
                 <LinearLayout
                     android:id="@+id/modalItemsContainer"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:paddingTop="6dp"
+                    android:paddingBottom="6dp"
+                    android:clipChildren="false"
+                    android:clipToPadding="false"
                     android:orientation="vertical" />
             </ScrollView>
 
@@ -427,6 +488,8 @@
                 android:id="@+id/modalCancelButton"
                 style="@style/SettingsRow"
                 android:layout_marginTop="16dp"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="12dp"
                 android:gravity="center"
                 android:text="@android:string/cancel" />
         </LinearLayout>

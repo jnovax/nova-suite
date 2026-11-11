@@ -66,6 +66,11 @@ public final class ScreensaverDiscovery {
                 // Skip launcher's internal ClockDream if present
                 if (context.getPackageName().equals(pkg)) continue;
 
+                // Skip system default ambient / dream services (cannot be previewed or launched as standalone activity)
+                if ("com.google.android.apps.tv.dreamx".equals(pkg) || "com.android.dreams.basic".equals(pkg)) {
+                    continue;
+                }
+
                 // Only include screensavers that have a launchable Activity!
                 // Services without an Activity cannot be previewed or launched by Launcher.
                 String activityClass = findCompanionActivity(pm, pkg);
