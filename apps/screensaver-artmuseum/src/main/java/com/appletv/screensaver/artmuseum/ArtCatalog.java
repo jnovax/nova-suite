@@ -58,12 +58,12 @@ public final class ArtCatalog {
                 "Österreichische Galerie Belvedere, Vienna"
         ));
         PIECES.add(new ArtPiece(
-                "night_watch",
-                "night_watch.webp",
-                "The Night Watch",
-                "Rembrandt van Rijn",
-                "1642",
-                "Rijksmuseum, Amsterdam"
+                "sunflowers",
+                "sunflowers.webp",
+                "Sunflowers",
+                "Vincent van Gogh",
+                "1888",
+                "National Gallery, London"
         ));
         PIECES.add(new ArtPiece(
                 "grande_jatte",
@@ -82,12 +82,12 @@ public final class ArtCatalog {
                 "Hamburger Kunsthalle"
         ));
         PIECES.add(new ArtPiece(
-                "dance_class",
-                "dance_class.webp",
-                "The Dance Class",
-                "Edgar Degas",
-                "1874",
-                "Musée d'Orsay, Paris"
+                "last_supper",
+                "last_supper.webp",
+                "The Last Supper",
+                "Leonardo da Vinci",
+                "1498",
+                "Santa Maria delle Grazie, Milan"
         ));
         PIECES.add(new ArtPiece(
                 "birth_of_venus",
@@ -98,12 +98,12 @@ public final class ArtCatalog {
                 "Uffizi Gallery, Florence"
         ));
         PIECES.add(new ArtPiece(
-                "creation_of_adam",
-                "creation_of_adam.webp",
-                "The Creation of Adam",
-                "Michelangelo",
-                "1512",
-                "Sistine Chapel, Vatican City"
+                "the_scream",
+                "the_scream.webp",
+                "The Scream",
+                "Edvard Munch",
+                "1893",
+                "National Museum, Oslo"
         ));
     }
 
