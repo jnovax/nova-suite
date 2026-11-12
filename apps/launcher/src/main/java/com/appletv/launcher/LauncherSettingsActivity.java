@@ -49,11 +49,9 @@ public final class LauncherSettingsActivity extends Activity {
 
     // Appearance Pane Controls
     private final TextView[] columnChoices = new TextView[4];
-    private TextView animationsChoice;
     private TextView advancedChoice;
     private TextView followThemeChoice;
     private int columns;
-    private boolean animations;
     private boolean advancedEffects;
 
     // Display & Night Dimmer & Screensaver Controls
@@ -110,8 +108,7 @@ public final class LauncherSettingsActivity extends Activity {
         choices = getSharedPreferences(Config.SETTINGS_NAME, MODE_PRIVATE);
         Config config = Config.load(this);
         columns = config.columns;
-        animations = config.animations;
-        advancedEffects = config.animations && config.advancedEffects;
+        advancedEffects = config.advancedEffects;
 
         dimmerMode = choices.getInt(Config.KEY_DIMMER_MODE, Config.DIMMER_MODE_SCHEDULED);
         dimmerLevel = choices.getInt(Config.KEY_DIMMER_LEVEL, Config.DEFAULT_DIMMER_LEVEL);
@@ -148,7 +145,6 @@ public final class LauncherSettingsActivity extends Activity {
         columnChoices[2] = findViewById(R.id.columns6);
         columnChoices[3] = findViewById(R.id.columns7);
 
-        animationsChoice = findViewById(R.id.animationsChoice);
         advancedChoice = findViewById(R.id.advancedChoice);
         followThemeChoice = findViewById(R.id.followThemeChoice);
 
@@ -343,16 +339,6 @@ public final class LauncherSettingsActivity extends Activity {
             });
         }
 
-        attachBackToTabListener(animationsChoice);
-        animationsChoice.setOnClickListener(v -> {
-            animations = !animations;
-            if (!animations) advancedEffects = false;
-            choices.edit().putBoolean("animations", animations)
-                    .putBoolean("advanced_effects", advancedEffects).apply();
-            setResult(RESULT_OK);
-            refresh();
-        });
-
         attachBackToTabListener(advancedChoice);
         advancedChoice.setOnClickListener(v -> {
             if (advancedEffects) {
@@ -381,8 +367,7 @@ public final class LauncherSettingsActivity extends Activity {
                     .commit();
             Config current = Config.load(this);
             columns = current.columns;
-            animations = current.animations;
-            advancedEffects = current.animations && current.advancedEffects;
+            advancedEffects = current.advancedEffects;
             notifySuiteService();
             setResult(RESULT_OK);
             refresh();
@@ -865,12 +850,10 @@ public final class LauncherSettingsActivity extends Activity {
         for (int i = 0; i < columnChoices.length; i++) {
             columnChoices[i].setSelected(columns == i + 4);
         }
-        animationsChoice.setText(getString(R.string.animations_state,
-                getString(animations ? R.string.on : R.string.off)));
         advancedChoice.setText(getString(R.string.advanced_effects_state,
                 getString(advancedEffects ? R.string.on : R.string.off)));
-        advancedChoice.setEnabled(animations);
-        advancedChoice.setAlpha(animations ? 1f : 0.5f);
+        advancedChoice.setEnabled(true);
+        advancedChoice.setAlpha(1f);
 
         // Night Dimmer Highlights
         dimmerModeOff.setSelected(dimmerMode == Config.DIMMER_MODE_OFF);
@@ -897,7 +880,7 @@ public final class LauncherSettingsActivity extends Activity {
     }
 
     private boolean hasOnTvChoices() {
-        return choices.contains("columns") || choices.contains("animations")
+        return choices.contains("columns")
                 || choices.contains("advanced_effects")
                 || choices.contains(Config.KEY_DOCK_OVERRIDE)
                 || choices.contains(Config.KEY_HIDDEN_OVERRIDE)

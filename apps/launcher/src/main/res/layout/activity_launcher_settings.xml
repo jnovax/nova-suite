@@ -155,11 +155,6 @@
                             android:text="MOTION &amp; EFFECTS" />
 
                         <TextView
-                            android:id="@+id/animationsChoice"
-                            style="@style/SettingsRow"
-                            android:layout_marginTop="8dp" />
-
-                        <TextView
                             android:id="@+id/advancedChoice"
                             style="@style/SettingsRow"
                             android:layout_marginTop="8dp" />

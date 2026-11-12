@@ -98,8 +98,11 @@ if [ -d "$TARGET_PATH" ] && [ -f "$TARGET_PATH/metadata.env" ]; then
         read -r -p "Do you want to uninstall Apple TV Launcher from TV? [y/N]: " REMOVE_LAUNCHER
         case "$REMOVE_LAUNCHER" in
             [yY][eE][sS]|[yY])
-                echo "    Uninstalling com.appletv.launcher..."
+                echo "    Uninstalling com.appletv.launcher and screensavers..."
                 adb -s "$DEV" shell pm uninstall com.appletv.launcher >/dev/null 2>&1 || true
+                adb -s "$DEV" shell pm uninstall com.appletv.screensaver.artmuseum >/dev/null 2>&1 || true
+                adb -s "$DEV" shell pm uninstall com.appletv.screensaver.flipclock >/dev/null 2>&1 || true
+                adb -s "$DEV" shell pm uninstall com.appletv.screensaver.landscape >/dev/null 2>&1 || true
                 ;;
         esac
 

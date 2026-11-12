@@ -105,7 +105,7 @@ final class Config {
         this.inputAction = inputAction;
         this.columns = columns;
         this.rowsBelowDock = rowsBelowDock;
-        this.animations = animations;
+        this.animations = true;
         this.advancedEffects = advancedEffects;
         this.ambientGlow = ambientGlow;
         this.shamsiDate = shamsiDate;
@@ -181,7 +181,6 @@ final class Config {
             columns = integer(json, "columns", columns, 1, 8);
             rowsBelow = integer(json, "rows_below_dock", rowsBelow, 0, 3);
             dockPaddingTop = integer(json, "dock_padding_top", dockPaddingTop, -1, 2000);
-            animations = bool(json, "animations", animations);
             advancedEffects = bool(json, "advanced_effects", advancedEffects);
             ambientGlow = bool(json, "ambient_glow", ambientGlow);
             shamsi = bool(json, "shamsi_date", shamsi);
@@ -201,7 +200,10 @@ final class Config {
         syncThemeChoices(choices, dir, file);
         int chosenColumns = choices.getInt("columns", columns);
         if (chosenColumns >= 4 && chosenColumns <= 7) columns = chosenColumns;
-        animations = choices.getBoolean("animations", animations);
+        // Remove any obsolete animations setting from SharedPreferences
+        if (choices.contains("animations")) {
+            choices.edit().remove("animations").apply();
+        }
         advancedEffects = choices.getBoolean("advanced_effects", advancedEffects);
         if (choices.contains(KEY_DOCK_OVERRIDE)) {
             dock = parseCsvList(choices.getString(KEY_DOCK_OVERRIDE, ""));

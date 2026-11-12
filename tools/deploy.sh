@@ -133,7 +133,7 @@ else
         if [ -n "$MDNS_DEV" ]; then
             echo "==> Auto-discovered Android TV via mDNS: $MDNS_DEV. Connecting..."
             safe_adb_connect "$MDNS_DEV" || true
-            if [ "$(adb -s "$MDNS_DEV" get-state 2>/dev/null || true)" = "device" ]; then
+            if [ "$(adb -s "$MDNS_DEV" get-state 2>/dev/null | tr -d '\r' || true)" = "device" ]; then
                 TARGET_DEV="$MDNS_DEV"
             fi
         fi
@@ -145,7 +145,7 @@ else
         for cand in "${DEFAULT_TARGETS[@]}"; do
             if safe_adb_connect "$cand"; then
                 echo "==> Found reachable TV target at $cand. Connected."
-                if [ "$(adb -s "$cand" get-state 2>/dev/null || true)" = "device" ]; then
+                if [ "$(adb -s "$cand" get-state 2>/dev/null | tr -d '\r' || true)" = "device" ]; then
                     TARGET_DEV="$cand"
                     break
                 fi
@@ -178,7 +178,7 @@ adb_exec() {
     fi
 }
 
-DEV_STATE=$(adb_exec -s "$TARGET_DEV" get-state 2>/dev/null || true)
+DEV_STATE=$(adb_exec -s "$TARGET_DEV" get-state 2>/dev/null | tr -d '\r' || true)
 if [ "$DEV_STATE" != "device" ]; then
     echo "❌ Error: Device $TARGET_DEV is not in 'device' state (currently: '${DEV_STATE:-disconnected}')." >&2
     if [ "$DEV_STATE" = "unauthorized" ]; then
@@ -206,7 +206,7 @@ adb_install() {
     fi
 
     local out
-    if ! out=$("${install_cmd[@]}" 2>&1); then
+    if ! out=$("${install_cmd[@]}" </dev/null 2>&1); then
         echo "$out" >&2
         if echo "$out" | grep -q "INSTALL_FAILED_UPDATE_INCOMPATIBLE"; then
             echo "⚠️ Signature mismatch detected for $(basename "$apk"). Existing app was signed with a different key." >&2
@@ -222,7 +222,7 @@ adb_install() {
                 local old_acc
                 old_acc=$(adb_exec -s "$TARGET_DEV" shell settings get secure enabled_accessibility_services 2>/dev/null | tr -d '\r' || true)
                 adb_exec -s "$TARGET_DEV" uninstall "$pkg" || true
-                "${install_cmd[@]}"
+                "${install_cmd[@]}" </dev/null
                 if [ -n "$old_acc" ] && [ "$old_acc" != "null" ]; then
                     adb_exec -s "$TARGET_DEV" shell settings put secure enabled_accessibility_services "$old_acc" 2>/dev/null || true
                     adb_exec -s "$TARGET_DEV" shell settings put secure accessibility_enabled 1 2>/dev/null || true
@@ -320,6 +320,12 @@ deploy_landscape() {
 
 
 sync_time
+
+# Clean up obsolete Art Museum screensaver if present on target device
+if adb_exec -s "$TARGET_DEV" shell pm list packages com.appletv.screensaver.artmuseum 2>/dev/null | grep -q "com.appletv.screensaver.artmuseum"; then
+    echo "==> Removing obsolete Art Museum screensaver ($TARGET_DEV)..."
+    adb_exec -s "$TARGET_DEV" uninstall com.appletv.screensaver.artmuseum </dev/null >/dev/null 2>&1 || true
+fi
 
 case "$TARGET" in
     launcher)

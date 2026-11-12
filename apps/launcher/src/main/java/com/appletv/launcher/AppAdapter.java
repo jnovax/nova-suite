@@ -20,6 +20,7 @@ import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
@@ -131,7 +132,6 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     private int docked, emptySlots;
     /** Never shown as tiles (res/values/config.xml, hidden_apps). */
     private final Set<String> hidden;
-    private final boolean animations;
     private final boolean advancedEffects;
     private final boolean showHomeSettings;
     /** Calmer motion for weak GPUs (config.xml, reduced_motion): no overshoot, shorter fades. */
@@ -145,8 +145,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         this.favourites = cfg.dockApps;
         this.fillDock = cfg.fillDock;
         this.hidden = new HashSet<>(cfg.hiddenApps);
-        this.animations = cfg.animations;
-        this.advancedEffects = cfg.animations && cfg.advancedEffects;
+        this.advancedEffects = cfg.advancedEffects;
         this.showHomeSettings = cfg.showHomeSettingsShortcut;
         this.reducedMotion = cfg.reducedMotion;
         // Tiles keep their identity across reload(), so a focused tile stays on its app instead of
@@ -307,7 +306,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         nameLp.width = Math.round(w * FOCUS_SCALE);
         nameLp.topMargin = h + Math.round(6 * density);
         name.setLayoutParams(nameLp);
-        return new Holder(v, this, listener, animations, advancedEffects, reducedMotion);
+        return new Holder(v, this, listener, advancedEffects, reducedMotion);
     }
 
     @Override
@@ -333,8 +332,8 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         h.name.setVisibility(showName ? View.VISIBLE : View.GONE);
         h.name.setAlpha(focused ? 1f : UNHOVERED_NAME_ALPHA);
         h.name.setTranslationY(focused && showName ? 8f * density : 0f);
-        h.card.setScaleX(focused && animations ? FOCUS_SCALE : 1f);
-        h.card.setScaleY(focused && animations ? FOCUS_SCALE : 1f);
+        h.card.setScaleX(focused ? FOCUS_SCALE : 1f);
+        h.card.setScaleY(focused ? FOCUS_SCALE : 1f);
         h.card.setTranslationX(0f);
         h.card.setTranslationY(0f);
         h.card.setTranslationZ(focused ? 15f * density : 0f);
@@ -451,7 +450,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     }
 
     float focusScale() {
-        return !animations ? 1f : FOCUS_SCALE;
+        return FOCUS_SCALE;
     }
 
     /** A vivid colour sampled from the app's banner (or icon), cached per entry; a card's accent when it set one. */
@@ -516,12 +515,11 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         final TextView label;
         final TextView name;
         final AppAdapter adapter;
-        final boolean animations;
         final boolean advancedEffects;
         final boolean reducedMotion;
         final long[] lastLongPressTime = {0};
 
-        Holder(View v, AppAdapter adapter, TileListener listener, boolean animations, boolean advancedEffects,
+        Holder(View v, AppAdapter adapter, TileListener listener, boolean advancedEffects,
                boolean reducedMotion) {
             super(v);
             this.adapter = adapter;
@@ -531,7 +529,6 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             label = v.findViewById(R.id.label);
             name = v.findViewById(R.id.name);
             if (name != null) name.setVisibility(View.GONE);
-            this.animations = animations;
             this.advancedEffects = advancedEffects;
             this.reducedMotion = reducedMotion;
 
@@ -591,6 +588,13 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 return listener != null && listener.onTileVerticalKey(pos, keyCode);
             });
 
+            card.setOnHoverListener((v1, event) -> {
+                if (event.getAction() == MotionEvent.ACTION_HOVER_ENTER) {
+                    v1.requestFocus();
+                }
+                return false;
+            });
+
             card.setOnFocusChangeListener((view, focused) -> {
                 if (!focused && longPressRunnable[0] != null) {
                     view.removeCallbacks(longPressRunnable[0]);
@@ -598,20 +602,12 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 }
                 view.animate().cancel();
                 name.animate().cancel();
-                float scale = !animations ? 1f : FOCUS_SCALE;
+                float scale = FOCUS_SCALE;
                 float s = focused ? scale : 1f;
                 float liftZ = focused ? 15f * density : 0f;
                 float targetNameAlpha = focused ? 1f : UNHOVERED_NAME_ALPHA;
                 float targetNameY = focused ? 8f * density : 0f;
-                if (!animations) {
-                    view.setScaleX(s);
-                    view.setScaleY(s);
-                    view.setTranslationX(0f);
-                    view.setTranslationY(0f);
-                    view.setTranslationZ(liftZ);
-                    name.setAlpha(targetNameAlpha);
-                    name.setTranslationY(targetNameY);
-                } else if (reducedMotion) {
+                if (reducedMotion) {
                     view.animate().scaleX(s).scaleY(s)
                             .translationX(0f)
                             .translationY(0f)

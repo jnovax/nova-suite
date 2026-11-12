@@ -66,8 +66,10 @@ public final class ScreensaverDiscovery {
                 // Skip launcher's internal ClockDream if present
                 if (context.getPackageName().equals(pkg)) continue;
 
-                // Skip system default ambient / dream services (cannot be previewed or launched as standalone activity)
-                if ("com.google.android.apps.tv.dreamx".equals(pkg) || "com.android.dreams.basic".equals(pkg)) {
+                // Skip obsolete or system default ambient / dream services
+                if ("com.appletv.screensaver.artmuseum".equals(pkg)
+                        || "com.google.android.apps.tv.dreamx".equals(pkg)
+                        || "com.android.dreams.basic".equals(pkg)) {
                     continue;
                 }
 
