@@ -31,3 +31,18 @@ resources/
 .worktrees/
 worktrees/
 
+# Local design previews and preserved source from before the repository split
+.superpowers/
+/apps/
+/core/
+/gradle/
+/build.gradle
+/gradle.properties
+/gradlew
+/gradlew.bat
+/settings.gradle
+/MyTV.webp
+/NovaVideoPlayer.png
+/Spotify.webp
+/family-time.png
+

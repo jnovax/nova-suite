@@ -1,0 +1,21 @@
+[submodule "nova-core"]
+	path = nova-core
+	url = git@github.com:jnovax/nova-core.git
+[submodule "nova-home"]
+	path = nova-home
+	url = git@github.com:jnovax/nova-home.git
+[submodule "nova-family"]
+	path = nova-family
+	url = git@github.com:jnovax/nova-family.git
+[submodule "nova-ss-clock"]
+	path = nova-ss-clock
+	url = git@github.com:jnovax/nova-ss-clock.git
+[submodule "nova-ss-landscapes"]
+	path = nova-ss-landscapes
+	url = git@github.com:jnovax/nova-ss-landscapes.git
+[submodule "nova-quiz"]
+	path = nova-quiz
+	url = git@github.com:jnovax/nova-quiz.git
+[submodule "nova-kara"]
+	path = nova-kara
+	url = git@github.com:jnovax/nova-kara.git
