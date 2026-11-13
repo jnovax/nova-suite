@@ -115,6 +115,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private View btnInputs;
     private TextView btnWifi;
     private View btnSettings;
+    private Config config;
     private BroadcastReceiver modeReceiver;
     private final IntentFilter usbFilter = new IntentFilter();
     private final BroadcastReceiver usbReceiver = new BroadcastReceiver() {
@@ -252,6 +253,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         density = getResources().getDisplayMetrics().density;
         // config.xml, overlaid by config.json if present (see Config).
         Config cfg = Config.load(this);
+        config = cfg;
         COLUMNS = cfg.columns;
         advancedEffects = cfg.advancedEffects;
         ambientGlow = cfg.ambientGlow;
@@ -516,7 +518,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 btnMode.setCompoundDrawableTintList(csl);
             }
             btnMode.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_mode_kid, 0, 0, 0);
-            if (btnSettings != null) btnSettings.setVisibility(View.GONE);
+            if (btnSettings != null) btnSettings.setVisibility(View.VISIBLE);
         } else {
             btnMode.setText(R.string.mode_parent);
             ColorStateList csl = ModeManager.getPillColorStateList(0xFFFFFFFF);
@@ -979,6 +981,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onResume() {
         super.onResume();
+        config = Config.load(this);
         resetScreensaverTimer();
         lastHomePressTime = android.os.SystemClock.uptimeMillis();
         // A festival that started or ended while Home was in the background: rebuild with or without it.
@@ -1136,6 +1139,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         int keyCode = event.getKeyCode();
         int scanCode = event.getScanCode();
         android.util.Log.e("AppleTv.HomeKey", "dispatch: action=" + event.getAction() + " key=" + keyCode + " scan=" + scanCode);
+
+        // Never intercept protected navigation, volume, or power keys
+        if (Config.isProtectedRemoteKey(keyCode)) {
+            return super.dispatchKeyEvent(event);
+        }
+
         if (keyCode == KeyEvent.KEYCODE_BUTTON_2 || keyCode == KeyEvent.KEYCODE_APP_SWITCH || keyCode == KeyEvent.KEYCODE_MENU || scanCode == 150 || scanCode == 580) {
             if (event.getAction() == KeyEvent.ACTION_UP) {
                 try {
@@ -1148,7 +1157,73 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
             return true;
         }
+
+        // Settings key fallback on Home screen
+        if (keyCode == KeyEvent.KEYCODE_SETTINGS || keyCode == 83) {
+            if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) {
+                try {
+                    startActivity(new Intent(this, QuickSettingsActivity.class));
+                } catch (Exception ignored) {}
+            }
+            return true;
+        }
+
+        // Mapped remote keys fallback on Home screen
+        Config cfg = config != null ? config : Config.load(this);
+        if (cfg != null && cfg.remoteKeys != null) {
+            String target = cfg.remoteKeys.get(keyCode);
+            if (target == null && scanCode > 0) {
+                target = cfg.remoteKeys.get(scanCode);
+            }
+            if (target != null) {
+                if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) {
+                    handleRemoteKeyTarget(target);
+                }
+                return true;
+            }
+        }
+
         return super.dispatchKeyEvent(event);
+    }
+
+    private void handleRemoteKeyTarget(String target) {
+        String type = HomeKeyService.getActionType(target);
+        if ("screensaver".equals(type)) {
+            if (ScreensaverPreferences.mode(this) != ScreensaverPreferences.OFF) {
+                ScreensaverDiscovery.launchScreensaver(this);
+            }
+            return;
+        }
+        if ("quick_settings".equals(type)) {
+            try {
+                startActivity(new Intent(this, QuickSettingsActivity.class));
+            } catch (Exception ignored) {}
+            return;
+        }
+        if ("recent_apps".equals(type)) {
+            try {
+                startActivity(new Intent(this, RecentAppsActivity.class));
+            } catch (Exception ignored) {}
+            return;
+        }
+        if ("inputs".equals(type)) {
+            toggleInputs();
+            return;
+        }
+        if ("wallpaper_picker".equals(type)) {
+            showWallpaperPickerGrid();
+            return;
+        }
+        if ("wallpaper_cycle".equals(type)) {
+            cycleWallpaper();
+            return;
+        }
+        // App target: check Kid Mode, then launch directly
+        if (ModeManager.isKidMode(this) && !ModeManager.isAppAllowedInKidMode(target, null)) {
+            android.util.Log.w("AppleTv.HomeKey", "Remote key app blocked in Kid Mode: " + target);
+            return;
+        }
+        launchPackageDirect(target);
     }
 
     // ---- tile focus -----------------------------------------------------------------------------
@@ -2027,6 +2102,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     private void applyConfigAndReload() {
         Config cfg = Config.load(this);
+        config = cfg;
         hiddenApps = new HashSet<>(cfg.hiddenApps);
         adapter = new AppAdapter(this, this, COLUMNS, cfg);
         grid.setAdapter(adapter);

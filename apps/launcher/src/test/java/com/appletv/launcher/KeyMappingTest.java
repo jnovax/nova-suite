@@ -54,7 +54,18 @@ public class KeyMappingTest {
         assertEquals("wallpaper_cycle", HomeKeyService.getActionType("wallpaper_cycle"));
         assertEquals("wallpaper_picker", HomeKeyService.getActionType("wallpaper_picker"));
 
+        assertEquals("screensaver", HomeKeyService.getActionType("screensaver"));
         assertEquals("app", HomeKeyService.getActionType("io.gh.reisxd.tizentube.cobalt"));
         assertEquals("app", HomeKeyService.getActionType("vn.mytvnet.b2cott"));
+    }
+
+    @Test
+    public void kidModeProtectsRemoteAppShortcuts() {
+        // In Kid Mode, disallowed apps like Parental Control should be blocked
+        org.junit.Assert.assertFalse(ModeManager.isAppAllowedInKidMode("vn.familytv.parentalcontrol", null));
+        // Whitelisted apps like TizenTube, MyTV, Nova should be allowed
+        org.junit.Assert.assertTrue(ModeManager.isAppAllowedInKidMode("io.gh.reisxd.tizentube.cobalt", null));
+        org.junit.Assert.assertTrue(ModeManager.isAppAllowedInKidMode("vn.mytvnet.b2cott", null));
+        org.junit.Assert.assertTrue(ModeManager.isAppAllowedInKidMode("org.courville.nova", null));
     }
 }

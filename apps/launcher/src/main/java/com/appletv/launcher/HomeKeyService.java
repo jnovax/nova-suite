@@ -189,22 +189,39 @@ public class HomeKeyService extends AccessibilityService {
             return;
         }
 
-        Intent intent = new Intent(this, MainActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         if ("inputs".equals(type)) {
-            intent.setAction(MainActivity.ACTION_SHOW_INPUTS);
+            Intent intent = new Intent(this, MainActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .setAction(MainActivity.ACTION_SHOW_INPUTS);
+            try {
+                startActivity(intent);
+            } catch (Exception e) {
+                android.util.Log.e("HomeKeyService", "Failed to start intent for " + target, e);
+            }
         } else if ("wallpaper_picker".equals(type)) {
-            intent.setAction(MainActivity.ACTION_SHOW_WALLPAPERS);
+            Intent intent = new Intent(this, MainActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .setAction(MainActivity.ACTION_SHOW_WALLPAPERS);
+            try {
+                startActivity(intent);
+            } catch (Exception e) {
+                android.util.Log.e("HomeKeyService", "Failed to start intent for " + target, e);
+            }
         } else if ("wallpaper_cycle".equals(type)) {
-            intent.setAction(MainActivity.ACTION_CYCLE_WALLPAPER);
+            Intent intent = new Intent(this, MainActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .setAction(MainActivity.ACTION_CYCLE_WALLPAPER);
+            try {
+                startActivity(intent);
+            } catch (Exception e) {
+                android.util.Log.e("HomeKeyService", "Failed to start intent for " + target, e);
+            }
         } else {
-            intent.setAction(MainActivity.ACTION_LAUNCH_APP);
-            intent.putExtra(MainActivity.EXTRA_PACKAGE_NAME, target);
-        }
-        try {
-            startActivity(intent);
-        } catch (Exception e) {
-            android.util.Log.e("HomeKeyService", "Failed to start intent for " + target, e);
+            if (ModeManager.isKidMode(this) && !ModeManager.isAppAllowedInKidMode(target, null)) {
+                android.util.Log.w("HomeKeyService", "Remote key app blocked in Kid Mode: " + target);
+                return;
+            }
+            launchPackage(target);
         }
     }
 

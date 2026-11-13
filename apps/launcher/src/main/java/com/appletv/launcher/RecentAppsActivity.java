@@ -487,6 +487,7 @@ public class RecentAppsActivity extends Activity {
         btnOpen.setOnClickListener(v -> { if (current() != null) openApp(current()); });
         btnClose.setOnClickListener(v -> closeSelected());
         btnInfo.setOnClickListener(v -> {
+            if (ModeManager.isKidMode(this)) return;
             RecentApp a = current();
             if (a == null) return;
             startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + a.pkg)));
@@ -521,6 +522,14 @@ public class RecentAppsActivity extends Activity {
     }
 
     private void openSettings() {
+        if (ModeManager.isKidMode(this)) {
+            try {
+                Intent intent = new Intent(this, QuickSettingsActivity.class);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+                return;
+            } catch (Exception ignored) {}
+        }
         if (!hasUsageAccess()) {
             try {
                 Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);

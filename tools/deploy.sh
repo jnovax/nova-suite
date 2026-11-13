@@ -269,6 +269,18 @@ deploy_launcher() {
     fi
     echo "==> Installing Launcher to $TARGET_DEV..."
     adb_install "$apk"
+    echo "==> Granting permissions & enabling HomeKeyService on $TARGET_DEV..."
+    adb_exec -s "$TARGET_DEV" shell appops set com.appletv.launcher GET_USAGE_STATS allow >/dev/null 2>&1 || true
+    adb_exec -s "$TARGET_DEV" shell appops set com.appletv.launcher SYSTEM_ALERT_WINDOW allow >/dev/null 2>&1 || true
+    local cur_a11y
+    cur_a11y=$(adb_exec -s "$TARGET_DEV" shell settings get secure enabled_accessibility_services 2>/dev/null | tr -d '\r' || true)
+    if [ -z "$cur_a11y" ] || [ "$cur_a11y" = "null" ]; then
+        cur_a11y="com.appletv.launcher/.HomeKeyService"
+    elif ! echo "$cur_a11y" | grep -qF "com.appletv.launcher/.HomeKeyService"; then
+        cur_a11y="${cur_a11y}:com.appletv.launcher/.HomeKeyService"
+    fi
+    adb_exec -s "$TARGET_DEV" shell settings put secure enabled_accessibility_services "$cur_a11y" >/dev/null 2>&1 || true
+    adb_exec -s "$TARGET_DEV" shell settings put secure accessibility_enabled 1 >/dev/null 2>&1 || true
     echo "==> Restarting Launcher..."
     adb_exec -s "$TARGET_DEV" shell am start -n com.appletv.launcher/.MainActivity
 }
@@ -286,6 +298,17 @@ deploy_parental() {
     fi
     echo "==> Installing Parental Control to $TARGET_DEV..."
     adb_install "$apk"
+    echo "==> Granting permissions & enabling Parental Control service on $TARGET_DEV..."
+    adb_exec -s "$TARGET_DEV" shell appops set vn.familytv.parentalcontrol SYSTEM_ALERT_WINDOW allow >/dev/null 2>&1 || true
+    local cur_a11y
+    cur_a11y=$(adb_exec -s "$TARGET_DEV" shell settings get secure enabled_accessibility_services 2>/dev/null | tr -d '\r' || true)
+    if [ -z "$cur_a11y" ] || [ "$cur_a11y" = "null" ]; then
+        cur_a11y="vn.familytv.parentalcontrol/.platform.ForegroundMonitorService"
+    elif ! echo "$cur_a11y" | grep -qF "vn.familytv.parentalcontrol/.platform.ForegroundMonitorService"; then
+        cur_a11y="${cur_a11y}:vn.familytv.parentalcontrol/.platform.ForegroundMonitorService"
+    fi
+    adb_exec -s "$TARGET_DEV" shell settings put secure enabled_accessibility_services "$cur_a11y" >/dev/null 2>&1 || true
+    adb_exec -s "$TARGET_DEV" shell settings put secure accessibility_enabled 1 >/dev/null 2>&1 || true
 }
 
 deploy_flipclock() {

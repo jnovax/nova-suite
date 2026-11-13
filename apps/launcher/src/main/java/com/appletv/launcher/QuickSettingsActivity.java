@@ -47,8 +47,10 @@ public final class QuickSettingsActivity extends Activity {
                     new Intent(this, MainActivity.class).setAction(MainActivity.ACTION_LAUNCHER_SETTINGS));
         }
 
-        // 8. System Settings
-        addRow(rows, R.drawable.ic_settings, R.string.tv_settings, 0, new Intent(Settings.ACTION_SETTINGS));
+        // 8. System Settings (Parent Mode only)
+        if (!ModeManager.isKidMode(this)) {
+            addRow(rows, R.drawable.ic_settings, R.string.tv_settings, 0, new Intent(Settings.ACTION_SETTINGS));
+        }
 
         if (rows.getChildCount() > 0) {
             rows.getChildAt(0).requestFocus();
