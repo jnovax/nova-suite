@@ -19,11 +19,43 @@ fi
 
 is_target() {
     case "$1" in
-        launcher|parental-control|parental|flipclock|landscape|screensavers|all)
+        launcher|nova-home|home|parental-control|parental|nova-family|family|flipclock|nova-ss-clock|clock|landscape|nova-ss-landscapes|ss-landscape|screensavers|screensaver|ss|kara|nova-kara|quiz|nova-quiz|all)
             return 0
             ;;
         *)
             return 1
+            ;;
+    esac
+}
+
+normalize_target() {
+    case "$1" in
+        launcher|nova-home|home)
+            echo "launcher"
+            ;;
+        parental-control|parental|nova-family|family)
+            echo "parental-control"
+            ;;
+        flipclock|nova-ss-clock|clock)
+            echo "flipclock"
+            ;;
+        landscape|nova-ss-landscapes|ss-landscape)
+            echo "landscape"
+            ;;
+        screensavers|screensaver|ss)
+            echo "screensavers"
+            ;;
+        kara|nova-kara)
+            echo "kara"
+            ;;
+        quiz|nova-quiz)
+            echo "quiz"
+            ;;
+        all)
+            echo "all"
+            ;;
+        *)
+            echo "$1"
             ;;
     esac
 }
@@ -36,16 +68,16 @@ TARGET_DEV=""
 
 if [ -n "$ARG1" ]; then
     if is_target "$ARG1"; then
-        TARGET="$ARG1"
+        TARGET="$(normalize_target "$ARG1")"
         TARGET_DEV="$ARG2"
     else
         # ARG1 is likely device ID or IP
         TARGET_DEV="$ARG1"
         if [ -n "$ARG2" ]; then
             if is_target "$ARG2"; then
-                TARGET="$ARG2"
+                TARGET="$(normalize_target "$ARG2")"
             else
-                echo "Error: Unknown target '$ARG2'. Use: launcher | parental-control | flipclock | landscape | screensavers | all" >&2
+                echo "Error: Unknown target '$ARG2'. Use: launcher | parental-control | flipclock | landscape | screensavers | kara | quiz | all" >&2
                 exit 1
             fi
         fi
@@ -218,14 +250,40 @@ adb_install() {
                 pkg=$(aapt dump badging "$apk" 2>/dev/null | grep -E "^package: name=" | sed -E "s/.*name='([^']+)'.*/\1/" || true)
             fi
             if [ -n "$pkg" ]; then
-                echo "==> Performing clean reinstall of $pkg (preserving accessibility settings)..."
-                local old_acc
+                echo "==> Performing clean reinstall of $pkg (preserving user settings, accessibility and screensaver)..."
+                local old_acc old_dreams old_dream_en
                 old_acc=$(adb_exec -s "$TARGET_DEV" shell settings get secure enabled_accessibility_services 2>/dev/null | tr -d '\r' || true)
-                adb_exec -s "$TARGET_DEV" uninstall "$pkg" || true
+                old_dreams=$(adb_exec -s "$TARGET_DEV" shell settings get secure screensaver_components 2>/dev/null | tr -d '\r' || true)
+                old_dream_en=$(adb_exec -s "$TARGET_DEV" shell settings get secure screensaver_enabled 2>/dev/null | tr -d '\r' || true)
+
+                local backup_tmp="/tmp/${pkg}_settings_backup.json"
+                rm -f "$backup_tmp"
+                adb_exec -s "$TARGET_DEV" pull "/sdcard/Android/data/$pkg/files/settings_backup.json" "$backup_tmp" >/dev/null 2>&1 || true
+
+                adb_exec -s "$TARGET_DEV" uninstall -k "$pkg" </dev/null >/dev/null 2>&1 || adb_exec -s "$TARGET_DEV" uninstall "$pkg" </dev/null || true
                 "${install_cmd[@]}" </dev/null
+                sleep 1
+
+                if [ -s "$backup_tmp" ]; then
+                    adb_exec -s "$TARGET_DEV" shell "mkdir -p /sdcard/Android/data/$pkg/files" >/dev/null 2>&1 || true
+                    adb_exec -s "$TARGET_DEV" push "$backup_tmp" "/sdcard/Android/data/$pkg/files/settings_backup.json" >/dev/null 2>&1 || true
+                    rm -f "$backup_tmp"
+                fi
+
                 if [ -n "$old_acc" ] && [ "$old_acc" != "null" ]; then
+                    # Toggle to force rebind
+                    local stripped
+                    stripped=$(echo "$old_acc" | tr ':' '\n' | grep -v "^${pkg}" | tr '\n' ':' | sed -E 's/:$//' || true)
+                    adb_exec -s "$TARGET_DEV" shell settings put secure enabled_accessibility_services "${stripped:-:}" 2>/dev/null || true
+                    sleep 0.5
                     adb_exec -s "$TARGET_DEV" shell settings put secure enabled_accessibility_services "$old_acc" 2>/dev/null || true
                     adb_exec -s "$TARGET_DEV" shell settings put secure accessibility_enabled 1 2>/dev/null || true
+                fi
+                if [ -n "$old_dreams" ] && [ "$old_dreams" != "null" ]; then
+                    adb_exec -s "$TARGET_DEV" shell settings put secure screensaver_components "$old_dreams" 2>/dev/null || true
+                fi
+                if [ -n "$old_dream_en" ] && [ "$old_dream_en" != "null" ]; then
+                    adb_exec -s "$TARGET_DEV" shell settings put secure screensaver_enabled "$old_dream_en" 2>/dev/null || true
                 fi
                 echo "✅ Successfully reinstalled $pkg"
                 return 0
@@ -254,70 +312,134 @@ sync_time() {
 }
 
 deploy_launcher() {
+    # Ensure companion screensavers are installed on the device so Nova Home discovery always finds them
+    if ! adb_exec -s "$TARGET_DEV" shell pm list packages com.appletv.screensaver.flipclock 2>/dev/null | grep -q "com.appletv.screensaver.flipclock"; then
+        echo "==> Screensaver FlipClock missing on $TARGET_DEV, auto-deploying companion..."
+        deploy_flipclock
+    fi
+    if ! adb_exec -s "$TARGET_DEV" shell pm list packages com.appletv.screensaver.landscape 2>/dev/null | grep -q "com.appletv.screensaver.landscape"; then
+        echo "==> Screensaver Landscape missing on $TARGET_DEV, auto-deploying companion..."
+        deploy_landscape
+    fi
+
     echo "==> Building Launcher APK..."
-    (cd "$ROOT_DIR" && ./gradlew :apps:launcher:assembleRelease)
-    local apk="$ROOT_DIR/apps/launcher/build/outputs/apk/release/apps-launcher-release.apk"
-    if [ ! -f "$apk" ]; then
-        apk="$ROOT_DIR/apps/launcher/build/outputs/apk/release/launcher-release.apk"
+    local apk=""
+    if [ -d "$ROOT_DIR/nova-home" ]; then
+        (cd "$ROOT_DIR/nova-home" && ./gradlew assembleRelease)
+        apk="$ROOT_DIR/nova-home/app/build/outputs/apk/release/app-release.apk"
+    elif [ -d "$ROOT_DIR/apps/launcher" ]; then
+        (cd "$ROOT_DIR" && ./gradlew :apps:launcher:assembleRelease)
+        apk="$ROOT_DIR/apps/launcher/build/outputs/apk/release/apps-launcher-release.apk"
+        if [ ! -f "$apk" ]; then
+            apk="$ROOT_DIR/apps/launcher/build/outputs/apk/release/launcher-release.apk"
+        fi
+        if [ ! -f "$apk" ]; then
+            apk=$(find "$ROOT_DIR/apps/launcher/build/outputs/apk/release" -name "*.apk" 2>/dev/null | head -n 1 || true)
+        fi
     fi
-    if [ ! -f "$apk" ]; then
-        apk=$(find "$ROOT_DIR/apps/launcher/build/outputs/apk/release" -name "*.apk" 2>/dev/null | head -n 1 || true)
-    fi
+
     if [ -z "$apk" ] || [ ! -f "$apk" ]; then
-        echo "Error: Launcher APK not found in $ROOT_DIR/apps/launcher/build/outputs/apk/release" >&2
+        echo "Error: Launcher APK not found" >&2
         exit 1
     fi
+
     echo "==> Installing Launcher to $TARGET_DEV..."
     adb_install "$apk"
-    echo "==> Granting permissions & enabling HomeKeyService on $TARGET_DEV..."
+
+    echo "==> Granting permissions & configuring HomeKeyService on $TARGET_DEV..."
     adb_exec -s "$TARGET_DEV" shell appops set com.appletv.launcher GET_USAGE_STATS allow >/dev/null 2>&1 || true
     adb_exec -s "$TARGET_DEV" shell appops set com.appletv.launcher SYSTEM_ALERT_WINDOW allow >/dev/null 2>&1 || true
+    adb_exec -s "$TARGET_DEV" shell pm grant com.appletv.launcher android.permission.WRITE_SECURE_SETTINGS >/dev/null 2>&1 || true
+
+    local service_name="com.appletv.launcher/.HomeKeyService"
     local cur_a11y
     cur_a11y=$(adb_exec -s "$TARGET_DEV" shell settings get secure enabled_accessibility_services 2>/dev/null | tr -d '\r' || true)
-    if [ -z "$cur_a11y" ] || [ "$cur_a11y" = "null" ]; then
-        cur_a11y="com.appletv.launcher/.HomeKeyService"
-    elif ! echo "$cur_a11y" | grep -qF "com.appletv.launcher/.HomeKeyService"; then
-        cur_a11y="${cur_a11y}:com.appletv.launcher/.HomeKeyService"
+    [ "$cur_a11y" = "null" ] && cur_a11y=""
+    local stripped
+    stripped=$(echo "$cur_a11y" | tr ':' '\n' | grep -v "^com\.appletv\.launcher" | tr '\n' ':' | sed -E 's/:$//' || true)
+    adb_exec -s "$TARGET_DEV" shell settings put secure enabled_accessibility_services "${stripped:-:}" >/dev/null 2>&1 || true
+    sleep 0.5
+
+    local new_a11y
+    if [ -n "$stripped" ]; then
+        new_a11y="${stripped}:${service_name}"
+    else
+        new_a11y="${service_name}"
     fi
-    adb_exec -s "$TARGET_DEV" shell settings put secure enabled_accessibility_services "$cur_a11y" >/dev/null 2>&1 || true
+    adb_exec -s "$TARGET_DEV" shell settings put secure enabled_accessibility_services "$new_a11y" >/dev/null 2>&1 || true
     adb_exec -s "$TARGET_DEV" shell settings put secure accessibility_enabled 1 >/dev/null 2>&1 || true
+
     echo "==> Restarting Launcher..."
     adb_exec -s "$TARGET_DEV" shell am start -n com.appletv.launcher/.MainActivity
 }
 
 deploy_parental() {
     echo "==> Building Parental Control APK..."
-    (cd "$ROOT_DIR" && ./gradlew :apps:parental-control:assembleRelease)
     local apk=""
-    if [ -d "$ROOT_DIR/apps/parental-control/build/outputs/apk/release" ]; then
-        apk=$(find "$ROOT_DIR/apps/parental-control/build/outputs/apk/release" -name "*.apk" 2>/dev/null | head -n 1 || true)
+    if [ -d "$ROOT_DIR/nova-family" ]; then
+        (cd "$ROOT_DIR/nova-family" && ./gradlew assembleRelease)
+        apk="$ROOT_DIR/nova-family/app/build/outputs/apk/release/app-release.apk"
+    elif [ -d "$ROOT_DIR/apps/parental-control" ]; then
+        (cd "$ROOT_DIR" && ./gradlew :apps:parental-control:assembleRelease)
+        if [ -d "$ROOT_DIR/apps/parental-control/build/outputs/apk/release" ]; then
+            apk=$(find "$ROOT_DIR/apps/parental-control/build/outputs/apk/release" -name "*.apk" 2>/dev/null | head -n 1 || true)
+        fi
     fi
+
     if [ -z "$apk" ] || [ ! -f "$apk" ]; then
-        echo "Error: Parental Control APK not found in $ROOT_DIR/apps/parental-control/build/outputs/apk/release" >&2
+        echo "Error: Parental Control APK not found" >&2
         exit 1
     fi
+
     echo "==> Installing Parental Control to $TARGET_DEV..."
     adb_install "$apk"
-    echo "==> Granting permissions & enabling Parental Control service on $TARGET_DEV..."
+
+    echo "==> Granting permissions & configuring Accessibility for FamilyTime on $TARGET_DEV..."
     adb_exec -s "$TARGET_DEV" shell appops set vn.familytv.parentalcontrol SYSTEM_ALERT_WINDOW allow >/dev/null 2>&1 || true
+    adb_exec -s "$TARGET_DEV" shell appops set vn.familytv.parentalcontrol GET_USAGE_STATS allow >/dev/null 2>&1 || true
+    adb_exec -s "$TARGET_DEV" shell appops set vn.familytv.parentalcontrol ACCESS_RESTRICTED_SETTINGS allow >/dev/null 2>&1 || true
+    adb_exec -s "$TARGET_DEV" shell pm grant vn.familytv.parentalcontrol android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
+
+    local service_name="vn.familytv.parentalcontrol/.platform.ForegroundMonitorService"
     local cur_a11y
     cur_a11y=$(adb_exec -s "$TARGET_DEV" shell settings get secure enabled_accessibility_services 2>/dev/null | tr -d '\r' || true)
-    if [ -z "$cur_a11y" ] || [ "$cur_a11y" = "null" ]; then
-        cur_a11y="vn.familytv.parentalcontrol/.platform.ForegroundMonitorService"
-    elif ! echo "$cur_a11y" | grep -qF "vn.familytv.parentalcontrol/.platform.ForegroundMonitorService"; then
-        cur_a11y="${cur_a11y}:vn.familytv.parentalcontrol/.platform.ForegroundMonitorService"
+    [ "$cur_a11y" = "null" ] && cur_a11y=""
+
+    # Force re-bind: toggle off then on so Android AccessibilityManagerService reconnects to updated APK
+    local stripped
+    stripped=$(echo "$cur_a11y" | tr ':' '\n' | grep -v "^vn\.familytv\.parentalcontrol" | tr '\n' ':' | sed -E 's/:$//' || true)
+    adb_exec -s "$TARGET_DEV" shell settings put secure enabled_accessibility_services "${stripped:-:}" >/dev/null 2>&1 || true
+    sleep 0.5
+
+    local new_a11y
+    if [ -n "$stripped" ]; then
+        new_a11y="${stripped}:${service_name}"
+    else
+        new_a11y="${service_name}"
     fi
-    adb_exec -s "$TARGET_DEV" shell settings put secure enabled_accessibility_services "$cur_a11y" >/dev/null 2>&1 || true
+    adb_exec -s "$TARGET_DEV" shell settings put secure enabled_accessibility_services "$new_a11y" >/dev/null 2>&1 || true
     adb_exec -s "$TARGET_DEV" shell settings put secure accessibility_enabled 1 >/dev/null 2>&1 || true
+
+    # Wake up app and service connection
+    adb_exec -s "$TARGET_DEV" shell am start -n vn.familytv.parentalcontrol/.MainActivity >/dev/null 2>&1 || true
+    sleep 0.5
+    # Return to home
+    adb_exec -s "$TARGET_DEV" shell am start -a android.intent.action.MAIN -c android.intent.category.HOME >/dev/null 2>&1 || true
 }
 
 deploy_flipclock() {
     echo "==> Building Screensaver FlipClock APK..."
-    (cd "$ROOT_DIR" && ./gradlew :apps:screensaver-flipclock:assembleRelease)
     local apk=""
-    if [ -d "$ROOT_DIR/apps/screensaver-flipclock/build/outputs/apk/release" ]; then
-        apk=$(find "$ROOT_DIR/apps/screensaver-flipclock/build/outputs/apk/release" -name "*.apk" 2>/dev/null | head -n 1 || true)
+    if [ -d "$ROOT_DIR/nova-ss-clock" ]; then
+        (cd "$ROOT_DIR/nova-ss-clock" && ./gradlew assembleRelease)
+        apk="$ROOT_DIR/nova-ss-clock/app/build/outputs/apk/release/app-release.apk"
+    elif [ -d "$ROOT_DIR/apps/screensaver-flipclock" ]; then
+        (cd "$ROOT_DIR" && ./gradlew :apps:screensaver-flipclock:assembleRelease)
+        if [ -d "$ROOT_DIR/apps/screensaver-flipclock/build/outputs/apk/release" ]; then
+            apk=$(find "$ROOT_DIR/apps/screensaver-flipclock/build/outputs/apk/release" -name "*.apk" 2>/dev/null | head -n 1 || true)
+        fi
     fi
+
     if [ -z "$apk" ] || [ ! -f "$apk" ]; then
         echo "Error: FlipClock APK not found" >&2
         exit 1
@@ -328,11 +450,17 @@ deploy_flipclock() {
 
 deploy_landscape() {
     echo "==> Building Screensaver Landscape APK..."
-    (cd "$ROOT_DIR" && ./gradlew :apps:screensaver-landscape:assembleRelease)
     local apk=""
-    if [ -d "$ROOT_DIR/apps/screensaver-landscape/build/outputs/apk/release" ]; then
-        apk=$(find "$ROOT_DIR/apps/screensaver-landscape/build/outputs/apk/release" -name "*.apk" 2>/dev/null | head -n 1 || true)
+    if [ -d "$ROOT_DIR/nova-ss-landscapes" ]; then
+        (cd "$ROOT_DIR/nova-ss-landscapes" && ./gradlew assembleRelease)
+        apk="$ROOT_DIR/nova-ss-landscapes/app/build/outputs/apk/release/app-release.apk"
+    elif [ -d "$ROOT_DIR/apps/screensaver-landscape" ]; then
+        (cd "$ROOT_DIR" && ./gradlew :apps:screensaver-landscape:assembleRelease)
+        if [ -d "$ROOT_DIR/apps/screensaver-landscape/build/outputs/apk/release" ]; then
+            apk=$(find "$ROOT_DIR/apps/screensaver-landscape/build/outputs/apk/release" -name "*.apk" 2>/dev/null | head -n 1 || true)
+        fi
     fi
+
     if [ -z "$apk" ] || [ ! -f "$apk" ]; then
         echo "Error: Landscape Screensaver APK not found" >&2
         exit 1
@@ -341,6 +469,29 @@ deploy_landscape() {
     adb_install "$apk"
 }
 
+deploy_kara() {
+    echo "==> Building Nova-Kara APK..."
+    (cd "$ROOT_DIR/nova-kara" && ./gradlew assembleRelease)
+    local apk="$ROOT_DIR/nova-kara/app/build/outputs/apk/release/app-release.apk"
+    if [ ! -f "$apk" ]; then
+        echo "Error: Nova-Kara APK not found" >&2
+        exit 1
+    fi
+    echo "==> Installing Nova-Kara to $TARGET_DEV..."
+    adb_install "$apk"
+}
+
+deploy_quiz() {
+    echo "==> Building Nova-Quiz APK..."
+    (cd "$ROOT_DIR/nova-quiz" && ./gradlew assembleRelease)
+    local apk="$ROOT_DIR/nova-quiz/app/build/outputs/apk/release/app-release.apk"
+    if [ ! -f "$apk" ]; then
+        echo "Error: Nova-Quiz APK not found" >&2
+        exit 1
+    fi
+    echo "==> Installing Nova-Quiz to $TARGET_DEV..."
+    adb_install "$apk"
+}
 
 sync_time
 
@@ -366,6 +517,12 @@ case "$TARGET" in
     screensavers)
         deploy_flipclock
         deploy_landscape
+        ;;
+    kara)
+        deploy_kara
+        ;;
+    quiz)
+        deploy_quiz
         ;;
     all)
         deploy_parental
